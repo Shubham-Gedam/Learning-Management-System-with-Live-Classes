@@ -20,23 +20,28 @@ export async function registerController(req, res) {
     password,
     name,
   });
-  const token = jwt.sign({userId: user._id}, process.env.JWT_SECRET)
+  const token = jwt.sign(
+    {
+      userId: user._id.toString(),
+      role: user.role,
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "3d" },
+  );
 
-  res.cookie("token", token)
-  
+  res.cookie("token", token);
+
   res.status(201).json({
-    user:{
-        _id: user._id,
-        email: user.email,
-        name: user.name,
+    user: {
+      _id: user._id,
+      email: user.email,
+      name: user.name,
     },
     token: token,
-     message: "User registered successfully",
-     status: "success",
-  })
-//   await emailService.sendRegistrationEmail(user.email, user.name);
-
-
+    message: "User registered successfully",
+    status: "success",
+  });
+  //   await emailService.sendRegistrationEmail(user.email, user.name);
 }
 
 export async function loginController(req, res) {
@@ -64,9 +69,12 @@ export async function loginController(req, res) {
     }
 
     const token = jwt.sign(
-      { userId: user._id.toString() },
+      {
+        userId: user._id.toString(),
+        role: user.role,
+      },
       process.env.JWT_SECRET,
-      { expiresIn: "3d" }
+      { expiresIn: "3d" },
     );
 
     res.cookie("token", token, {
@@ -97,23 +105,22 @@ export async function loginController(req, res) {
   }
 }
 
-export async function userLogoutController(req,res) {
-    
-    const token = req.cookies.token || req.headers.authorization?.split(" ")[1]
+export async function userLogoutController(req, res) {
+  const token = req.cookies.token || req.headers.authorization?.split(" ")[1];
 
-    if(!token){
-        return res.status(200).json({
-            message: "User logged out successfully"
-        })
-    }
+  if (!token) {
+    return res.status(200).json({
+      message: "User logged out successfully",
+    });
+  }
 
-    await tokenBlackListModel.create({
-        token: token
-    })
+  await tokenBlackListModel.create({
+    token: token,
+  });
 
-    res.clearCookie("token")
+  res.clearCookie("token");
 
-    res.status(200).json({
-        message: "user logged out successfully"
-    })
+  res.status(200).json({
+    message: "user logged out successfully",
+  });
 }
