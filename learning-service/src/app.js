@@ -3,6 +3,9 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import learningRoutes from "./routes/learning.route.js";
+import lessonRoutes from "./routes/lesson.route.js";
+import quizRoutes from "./routes/quiz.route.js";
+import quizAttemptRoutes from "./routes/quizAttempt.route.js";
 
 const app = express();
 
@@ -24,5 +27,8 @@ app.get("/health", (req, res) => {
 });
 
 app.use("/api/learning", learningRoutes);
+app.use("/api/lessons", lessonRoutes);
+app.use("/api/quizzes", quizRoutes);
+app.use("/api/quiz-attempts", quizAttemptRoutes);
 
 export default app;

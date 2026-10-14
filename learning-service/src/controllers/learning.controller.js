@@ -1,4 +1,5 @@
 import enrollmentModel from "../models/enrollment.model.js";
+import lessonModel from "../models/Lesson.model.js";
 
 // 1. Enroll in a course
 export async function enrollCourseController(req, res) {
@@ -108,6 +109,7 @@ export async function getEnrollmentByIdController(req, res) {
 }
 
 // 4. Mark a lesson as completed
+
 export async function completeLessonController(req, res) {
   try {
     const { lessonId } = req.body;
@@ -139,28 +141,67 @@ export async function completeLessonController(req, res) {
       });
     }
 
-    if (!enrollment.completedLessons.includes(lessonId.trim())) {
-      enrollment.completedLessons.push(lessonId.trim());
+    // Verify that the lesson belongs to this course
+    // and is published.
+    const lesson = await lessonModel.findOne({
+      _id: lessonId.trim(),
+      courseId: enrollment.courseId,
+      isPublished: true,
+    });
+
+    if (!lesson) {
+      return res.status(404).json({
+        message: "Published lesson not found in this course",
+        status: "failed",
+      });
     }
 
-    // Progress is based on completed lesson IDs.
-    // Exact percentage requires the total lesson count from Course/Learning content.
-    enrollment.progress = Math.min(
-      99,
-      enrollment.completedLessons.length
-    );
+    const completedLessonId = lesson._id.toString();
+
+    // Avoid duplicate lesson completion.
+    if (!enrollment.completedLessons.includes(completedLessonId)) {
+      enrollment.completedLessons.push(completedLessonId);
+    }
+
+    // Count all published lessons in this course.
+    const totalLessons = await lessonModel.countDocuments({
+      courseId: enrollment.courseId,
+      isPublished: true,
+    });
+
+    // Count only completed lessons that belong to this course.
+    const completedLessonsCount = await lessonModel.countDocuments({
+      _id: { $in: enrollment.completedLessons },
+      courseId: enrollment.courseId,
+      isPublished: true,
+    });
+
+    enrollment.progress =
+      totalLessons > 0
+        ? Math.round((completedLessonsCount / totalLessons) * 100)
+        : 0;
+
+    // Mark the enrollment completed when all lessons are done.
+    if (totalLessons > 0 && completedLessonsCount >= totalLessons) {
+      enrollment.progress = 100;
+      enrollment.status = "completed";
+      enrollment.completedAt = new Date();
+    }
 
     await enrollment.save();
 
     return res.status(200).json({
-      message: "Lesson marked as completed",
+      message:
+        enrollment.status === "completed"
+          ? "Course completed successfully"
+          : "Lesson marked as completed",
       status: "success",
       data: enrollment,
     });
   } catch (error) {
     if (error.name === "CastError") {
       return res.status(400).json({
-        message: "Invalid enrollment ID",
+        message: "Invalid enrollment ID or lesson ID",
         status: "failed",
       });
     }
