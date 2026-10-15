@@ -1,5 +1,6 @@
 import path from "path";
 import mediaModel from "../models/Media.model.js";
+import videoQueue from "../queues/video.queue.js";
 
 // 1. Create media metadata
 export async function createMediaController(req, res) {
@@ -165,6 +166,8 @@ export async function deleteMediaController(req, res) {
 
 // 5. Upload an actual video file
 export async function uploadVideoController(req, res) {
+  let uploadedMedia = null;
+
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -186,7 +189,7 @@ export async function uploadVideoController(req, res) {
       req.file.path
     )}`;
 
-    const media = await mediaModel.create({
+    uploadedMedia = await mediaModel.create({
       title: title.trim(),
       description: description || "",
       mediaType: "video",
@@ -194,17 +197,67 @@ export async function uploadVideoController(req, res) {
       publicId: "",
       courseId: courseId || null,
       uploadedBy: req.user.userId,
+      processingStatus: "pending",
+    });
+
+    const job = await videoQueue.add("process-video", {
+      videoId: uploadedMedia._id.toString(),
+      filePath: req.file.path,
+      title: uploadedMedia.title,
     });
 
     return res.status(201).json({
-      message: "Video uploaded successfully",
+      message: "Video uploaded and processing job queued",
+      status: "success",
+      data: {
+        media: uploadedMedia,
+        jobId: job.id,
+      },
+    });
+  } catch (error) {
+    console.error("Video upload error:", error);
+
+    return res.status(500).json({
+      message: uploadedMedia
+        ? "Video uploaded, but processing job could not be queued"
+        : "Failed to upload video",
+      error: error.message,
+      status: "failed",
+    });
+  }
+}
+
+// 6. Check video processing status
+export async function getVideoProcessingStatusController(req, res) {
+  try {
+    const media = await mediaModel.findOne({
+      _id: req.params.mediaId,
+      mediaType: "video",
+      isActive: true,
+    }).select("title fileUrl processingStatus");
+
+    if (!media) {
+      return res.status(404).json({
+        message: "Video not found",
+        status: "failed",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Video processing status fetched successfully",
       status: "success",
       data: media,
     });
   } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid media ID",
+        status: "failed",
+      });
+    }
+
     return res.status(500).json({
-      message: "Failed to upload video",
-      error: error.message,
+      message: "Failed to fetch video processing status",
       status: "failed",
     });
   }

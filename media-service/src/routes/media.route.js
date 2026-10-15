@@ -5,7 +5,8 @@ import {
   getAllMediaController,
   getMediaByIdController,
   deleteMediaController,
-  uploadVideoController
+  uploadVideoController,
+  getVideoProcessingStatusController
 } from "../controllers/media.controller.js";
 import upload from "../middleware/upload.middleware.js";
 
@@ -16,6 +17,7 @@ const router = express.Router();
 
 // Public read endpoints
 router.get("/", getAllMediaController);
+router.get("/:mediaId/processing-status",authMiddleware,getVideoProcessingStatusController);
 router.get("/:mediaId", getMediaByIdController);
 
 

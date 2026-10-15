@@ -24,6 +24,7 @@ app.get("/health", (req, res) => {
   });
 });
 app.use("/uploads/videos",express.static(path.resolve("uploads/videos")));
+app.use("/uploads/processed",express.static(path.resolve("uploads/processed")));
 app.use("/api/media", mediaRoutes);
 
 export default app;

@@ -45,6 +45,11 @@ const mediaSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    processingStatus: {
+      type: String,
+      enum: ["pending", "processing", "completed", "failed"],
+      default: "pending",
+    },
   },
   { timestamps: true }
 );
