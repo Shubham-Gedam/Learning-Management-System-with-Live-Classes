@@ -1,3 +1,4 @@
+import path from "path";
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -22,7 +23,7 @@ app.get("/health", (req, res) => {
     status: "success",
   });
 });
-
+app.use("/uploads/videos",express.static(path.resolve("uploads/videos")));
 app.use("/api/media", mediaRoutes);
 
 export default app;

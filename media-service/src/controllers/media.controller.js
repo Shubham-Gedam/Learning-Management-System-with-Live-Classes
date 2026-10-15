@@ -1,3 +1,4 @@
+import path from "path";
 import mediaModel from "../models/Media.model.js";
 
 // 1. Create media metadata
@@ -157,6 +158,53 @@ export async function deleteMediaController(req, res) {
 
     return res.status(500).json({
       message: "Failed to delete media",
+      status: "failed",
+    });
+  }
+}
+
+// 5. Upload an actual video file
+export async function uploadVideoController(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        message: "Please select a video file",
+        status: "failed",
+      });
+    }
+
+    const { title, description, courseId } = req.body;
+
+    if (!title?.trim()) {
+      return res.status(400).json({
+        message: "Video title is required",
+        status: "failed",
+      });
+    }
+
+    const fileUrl = `/uploads/videos/${path.basename(
+      req.file.path
+    )}`;
+
+    const media = await mediaModel.create({
+      title: title.trim(),
+      description: description || "",
+      mediaType: "video",
+      fileUrl,
+      publicId: "",
+      courseId: courseId || null,
+      uploadedBy: req.user.userId,
+    });
+
+    return res.status(201).json({
+      message: "Video uploaded successfully",
+      status: "success",
+      data: media,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to upload video",
+      error: error.message,
       status: "failed",
     });
   }
