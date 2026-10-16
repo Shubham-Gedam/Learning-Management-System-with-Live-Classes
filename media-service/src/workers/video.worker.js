@@ -1,4 +1,3 @@
-
 import "dotenv/config";
 import { Worker } from "bullmq";
 import { spawn } from "child_process";
@@ -12,6 +11,7 @@ import mediaModel from "../models/Media.model.js";
 import s3Client from "../config/s3.js";
 
 const bucketName = process.env.AWS_S3_BUCKET;
+const cloudFrontDomain = process.env.CLOUDFRONT_DOMAIN;
 
 async function uploadHlsToS3(outputDirectory, videoId) {
   if (!bucketName) {
@@ -44,7 +44,7 @@ async function uploadHlsToS3(outputDirectory, videoId) {
         Key: key,
         Body: fs.createReadStream(filePath),
         ContentType: contentType,
-      })
+      }),
     );
 
     console.log(`Uploaded to S3: ${key}`);
@@ -64,15 +64,8 @@ async function startWorker() {
       console.log(`Processing HLS video job: ${job.id}`);
 
       const inputPath = path.resolve(filePath);
-      const outputDirectory = path.resolve(
-        "uploads",
-        "processed",
-        videoId
-      );
-      const playlistPath = path.join(
-        outputDirectory,
-        "index.m3u8"
-      );
+      const outputDirectory = path.resolve("uploads", "processed", videoId);
+      const playlistPath = path.join(outputDirectory, "index.m3u8");
 
       try {
         await mediaModel.findByIdAndUpdate(videoId, {
@@ -86,24 +79,30 @@ async function startWorker() {
         fs.mkdirSync(outputDirectory, { recursive: true });
 
         await new Promise((resolve, reject) => {
-          const ffmpeg = spawn(
-            process.env.FFMPEG_PATH || "ffmpeg",
-            [
-              "-y",
-              "-i", inputPath,
-              "-c:v", "libx264",
-              "-preset", "medium",
-              "-crf", "28",
-              "-c:a", "aac",
-              "-b:a", "128k",
-              "-f", "hls",
-              "-hls_time", "6",
-              "-hls_playlist_type", "vod",
-              "-hls_segment_filename",
-              path.join(outputDirectory, "segment%03d.ts"),
-              playlistPath,
-            ]
-          );
+          const ffmpeg = spawn(process.env.FFMPEG_PATH || "ffmpeg", [
+            "-y",
+            "-i",
+            inputPath,
+            "-c:v",
+            "libx264",
+            "-preset",
+            "medium",
+            "-crf",
+            "28",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "128k",
+            "-f",
+            "hls",
+            "-hls_time",
+            "6",
+            "-hls_playlist_type",
+            "vod",
+            "-hls_segment_filename",
+            path.join(outputDirectory, "segment%03d.ts"),
+            playlistPath,
+          ]);
 
           ffmpeg.stderr.on("data", (data) => {
             console.log(data.toString());
@@ -125,18 +124,20 @@ async function startWorker() {
         }
 
         // Upload playlist and all HLS segments to S3.
-        const s3Key = await uploadHlsToS3(
-          outputDirectory,
-          videoId
-        );
+        const s3Key = await uploadHlsToS3(outputDirectory, videoId);
+        if (!cloudFrontDomain) {
+          throw new Error("CLOUDFRONT_DOMAIN is not configured");
+        }
+
+        const cloudFrontUrl = `${cloudFrontDomain.replace(/\/$/, "")}/${s3Key}`;
 
         const updatedMedia = await mediaModel.findByIdAndUpdate(
           videoId,
           {
-            fileUrl: s3Key,
+            fileUrl: cloudFrontUrl,
             processingStatus: "completed",
           },
-          { returnDocument: "after" }
+          { returnDocument: "after" },
         );
 
         if (!updatedMedia) {
@@ -150,6 +151,7 @@ async function startWorker() {
           videoId,
           processingStatus: "completed",
           s3Key,
+          cloudFrontUrl,
           bucketName,
         };
       } catch (error) {
@@ -163,7 +165,7 @@ async function startWorker() {
     {
       connection: redisConnection,
       concurrency: 1,
-    }
+    },
   );
 
   videoWorker.on("completed", (job, result) => {
