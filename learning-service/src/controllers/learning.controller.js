@@ -109,7 +109,6 @@ export async function getEnrollmentByIdController(req, res) {
 }
 
 // 4. Mark a lesson as completed
-
 export async function completeLessonController(req, res) {
   try {
     const { lessonId } = req.body;
@@ -209,6 +208,39 @@ export async function completeLessonController(req, res) {
     return res.status(500).json({
       message: "Failed to complete lesson",
       error: error.message,
+      status: "failed",
+    });
+  }
+}
+
+// Verify whether a student is enrolled in a course
+export async function verifyCourseEnrollmentController(req, res) {
+  try {
+    const { studentId, courseId } = req.query;
+
+    if (!studentId || !courseId) {
+      return res.status(400).json({
+        message: "Student ID and course ID are required",
+        status: "failed",
+      });
+    }
+
+    const enrollment = await enrollmentModel.findOne({
+      student: studentId,
+      courseId,
+      status: { $in: ["active", "completed"] },
+    });
+
+    return res.status(200).json({
+      message: "Enrollment verification completed",
+      status: "success",
+      data: {
+        isEnrolled: Boolean(enrollment),
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to verify enrollment",
       status: "failed",
     });
   }

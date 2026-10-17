@@ -19,4 +19,7 @@ router.post("/",authMiddleware,authorizeRoles("instructor", "admin"),liveClassCo
 // Instructor/admin: update class status
 router.patch("/:classId/status",authMiddleware,authorizeRoles("instructor", "admin"),liveClassController.updateLiveClassStatusController);
 
+// Authenticated users can request a token for a live class
+router.post("/:classId/join-token", authMiddleware, liveClassController.joinLiveClassController);
+
 export default router;

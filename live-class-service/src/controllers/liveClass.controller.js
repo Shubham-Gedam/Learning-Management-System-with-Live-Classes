@@ -1,4 +1,6 @@
 import liveClassModel from "../models/liveclass.model.js";
+import { generateLiveKitToken } from "../utils/livekit.js";
+import { verifyEnrollment } from "../utils/verifyEnrollment.js";
 
 // Create a live class
 export async function createLiveClassController(req, res) {
@@ -180,6 +182,99 @@ export async function updateLiveClassStatusController(req, res) {
 
     return res.status(500).json({
       message: "Failed to update live class status",
+      status: "failed",
+    });
+  }
+}
+
+// Generate a secure token to join a live class
+export async function joinLiveClassController(req, res) {
+  try {
+    const { classId } = req.params;
+
+    const liveClass = await liveClassModel.findOne({
+      _id: classId,
+      isActive: true,
+    });
+
+    if (!liveClass) {
+      return res.status(404).json({
+        message: "Live class not found",
+        status: "failed",
+      });
+    }
+
+    if (liveClass.status !== "live") {
+      return res.status(400).json({
+        message: "This class is not currently live",
+        status: "failed",
+      });
+    }
+
+    const isInstructor =
+      liveClass.instructorId === req.user.userId;
+
+    const isAdmin = req.user.role === "admin";
+
+    if (
+      !isInstructor &&
+      !isAdmin &&
+      req.user.role !== "student"
+    ) {
+      return res.status(403).json({
+        message: "You are not authorized to join this class",
+        status: "failed",
+      });
+    }
+
+    // Student enrollment verification will be added next.
+    const roomName = `live-class-${liveClass._id}`;
+
+    if (!isInstructor && !isAdmin) {
+  let isEnrolled;
+
+  try {
+    isEnrolled = await verifyEnrollment(
+      req.user.userId,
+      liveClass.courseId
+    );
+  } catch (error) {
+    console.error("Enrollment verification error:", error.message);
+
+    return res.status(503).json({
+      message: "Unable to verify course enrollment",
+      status: "failed",
+    });
+  }
+
+  if (!isEnrolled) {
+    return res.status(403).json({
+      message: "You must be enrolled in this course to join",
+      status: "failed",
+    });
+  }
+}
+
+    const token = await generateLiveKitToken({
+      identity: req.user.userId,
+      roomName,
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      message: "Live class token generated successfully",
+      status: "success",
+      data: {
+        serverUrl: process.env.LIVEKIT_URL,
+        roomName,
+        token,
+      },
+    });
+  } catch (error) {
+    console.error("Live class token error:", error.message);
+
+    return res.status(500).json({
+      message: "Failed to generate live class token",
       status: "failed",
     });
   }
