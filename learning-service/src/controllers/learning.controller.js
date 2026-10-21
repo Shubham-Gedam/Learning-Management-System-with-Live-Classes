@@ -231,14 +231,37 @@ export async function verifyCourseEnrollmentController(req, res) {
       status: { $in: ["active", "completed"] },
     });
 
+    if (!enrollment) {
+      return res.status(200).json({
+        message: "Student is not enrolled in this course",
+        status: "success",
+        data: {
+          isEnrolled: false,
+          progress: 0,
+          enrollmentStatus: null,
+          isCompleted: false,
+        },
+      });
+    }
+
+    const isCompleted =
+      enrollment.progress === 100 &&
+      enrollment.status === "completed";
+
     return res.status(200).json({
       message: "Enrollment verification completed",
       status: "success",
       data: {
-        isEnrolled: Boolean(enrollment),
+        isEnrolled: true,
+        progress: enrollment.progress,
+        enrollmentStatus: enrollment.status,
+        isCompleted,
+        completedAt: enrollment.completedAt,
       },
     });
   } catch (error) {
+    console.error("Verify enrollment error:", error);
+
     return res.status(500).json({
       message: "Failed to verify enrollment",
       status: "failed",

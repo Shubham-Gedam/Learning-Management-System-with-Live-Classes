@@ -139,7 +139,7 @@ export async function getLessonQuizzesController(req, res) {
   }
 }
 
-// 3. Publish or unpublish a quiz (Admin)
+// 3. Publish or unpublish a quiz 
 export async function updateQuizPublishController(req, res) {
   try {
     const { quizId } = req.params;
@@ -159,11 +159,7 @@ export async function updateQuizPublishController(req, res) {
       });
     }
 
-    const quiz = await quizModel.findByIdAndUpdate(
-      quizId,
-      { isPublished },
-      { new: true, runValidators: true }
-    );
+    const quiz = await quizModel.findById(quizId);
 
     if (!quiz) {
       return res.status(404).json({
@@ -172,12 +168,41 @@ export async function updateQuizPublishController(req, res) {
       });
     }
 
+    // Instructors can publish only quizzes in their own courses.
+    if (req.user.role === "instructor") {
+      const ownership = await verifyCourseOwnership(
+        quiz.courseId,
+        req.user.userId
+      );
+
+      if (!ownership.exists) {
+        return res.status(404).json({
+          message: "Course not found",
+          status: "failed",
+        });
+      }
+
+      if (!ownership.isOwner) {
+        return res.status(403).json({
+          message: "You can only manage quizzes for your own courses",
+          status: "failed",
+        });
+      }
+    }
+
+    quiz.isPublished = isPublished;
+    await quiz.save();
+
     return res.status(200).json({
-      message: `Quiz ${isPublished ? "published" : "unpublished"} successfully`,
+      message: `Quiz ${
+        isPublished ? "published" : "unpublished"
+      } successfully`,
       status: "success",
       data: quiz,
     });
   } catch (error) {
+    console.error("Update quiz publish error:", error.message);
+
     return res.status(500).json({
       message: "Failed to update quiz status",
       status: "failed",

@@ -129,7 +129,7 @@ export async function getCourseLessonsController(req, res) {
   }
 }
 
-// 3. Publish or unpublish a lesson (admin only)
+// 3. Publish or unpublish a lesson (instructor/admin)
 export async function updateLessonPublishController(req, res) {
   try {
     const { lessonId } = req.params;
@@ -149,11 +149,7 @@ export async function updateLessonPublishController(req, res) {
       });
     }
 
-    const lesson = await lessonModel.findByIdAndUpdate(
-      lessonId,
-      { isPublished },
-      { new: true, runValidators: true }
-    );
+    const lesson = await lessonModel.findById(lessonId);
 
     if (!lesson) {
       return res.status(404).json({
@@ -162,12 +158,41 @@ export async function updateLessonPublishController(req, res) {
       });
     }
 
+    // Instructor can manage lessons only for their own courses.
+    if (req.user.role === "instructor") {
+      const ownership = await verifyCourseOwnership(
+        lesson.courseId.toString(),
+        req.user.userId
+      );
+
+      if (!ownership.exists) {
+        return res.status(404).json({
+          message: "Course not found",
+          status: "failed",
+        });
+      }
+
+      if (!ownership.isOwner) {
+        return res.status(403).json({
+          message: "You can only manage lessons for your own courses",
+          status: "failed",
+        });
+      }
+    }
+
+    lesson.isPublished = isPublished;
+    await lesson.save();
+
     return res.status(200).json({
-      message: `Lesson ${isPublished ? "published" : "unpublished"} successfully`,
+      message: `Lesson ${
+        isPublished ? "published" : "unpublished"
+      } successfully`,
       status: "success",
       data: lesson,
     });
   } catch (error) {
+    console.error("Update lesson publish error:", error.message);
+
     return res.status(500).json({
       message: "Failed to update lesson",
       status: "failed",

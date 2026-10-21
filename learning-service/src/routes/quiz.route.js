@@ -27,7 +27,7 @@ router.post(
 router.patch(
   "/:quizId/publish",
   authMiddleware,
-  authorizeRoles("admin"),
+  authorizeRoles("instructor", "admin"),
   updateQuizPublishController
 );
 

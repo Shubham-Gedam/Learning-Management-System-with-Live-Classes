@@ -16,19 +16,9 @@ const router = express.Router();
 router.get("/course/:courseId", getCourseLessonsController);
 
 // Instructor/Admin: create a lesson
-router.post(
-  "/",
-  authMiddleware,
-  authorizeRoles("instructor", "admin"),
-  createLessonController
-);
+router.post("/",authMiddleware,authorizeRoles("instructor", "admin"),createLessonController);
 
-// Admin: publish or unpublish a lesson
-router.patch(
-  "/:lessonId/publish",
-  authMiddleware,
-  authorizeRoles("admin"),
-  updateLessonPublishController
-);
+// Instructor/Admin: publish or unpublish a lesson
+router.patch("/:lessonId/publish",authMiddleware,authorizeRoles("instructor", "admin"),updateLessonPublishController);
 
 export default router;

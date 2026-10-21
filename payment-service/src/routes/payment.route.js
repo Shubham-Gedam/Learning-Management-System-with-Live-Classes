@@ -7,5 +7,6 @@ const router = express.Router();
 
 router.post("/create-order",authMiddleware,authorizeRoles("student"), paymentController.createOrder);
 router.post("/verify-payment",authMiddleware,authorizeRoles("student"), paymentController.verifyPayment);
+router.post("/retry-enrollment",authMiddleware,authorizeRoles("student"),paymentController.retryEnrollment);
 
 export default router;

@@ -20,7 +20,9 @@ export async function createOrder(req, res) {
 
     const courseServiceUrl = process.env.COURSE_SERVICE_URL;
 
-    const response = await fetch(`${courseServiceUrl}/api/courses/${courseId}`);
+    const response = await fetch(
+      `${courseServiceUrl}/api/courses/${courseId}`
+    );
 
     if (!response.ok) {
       return res.status(404).json({
@@ -33,7 +35,11 @@ export async function createOrder(req, res) {
     const course = result.data || result.course || result;
     const coursePrice = Number(course?.price);
 
-    if (!course || !Number.isFinite(coursePrice) || coursePrice <= 0) {
+    if (
+      !course ||
+      !Number.isFinite(coursePrice) ||
+      coursePrice <= 0
+    ) {
       return res.status(400).json({
         message: "Course price is invalid or course is free",
         status: "failed",
@@ -83,10 +89,19 @@ export async function createOrder(req, res) {
 
 export async function verifyPayment(req, res) {
   try {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-      req.body;
+    console.log("VERIFY PAYMENT CALLED");
 
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+    } = req.body;
+
+    if (
+      !razorpay_order_id ||
+      !razorpay_payment_id ||
+      !razorpay_signature
+    ) {
       return res.status(400).json({
         message: "All payment details are required",
         status: "failed",
@@ -105,82 +120,197 @@ export async function verifyPayment(req, res) {
       });
     }
 
-    if (payment.status === "COMPLETED") {
-      return res.status(200).json({
-        message: "Payment already verified",
-        status: "success",
-      });
-    }
+    // Verify signature and payment details.
+    // If already completed, don't require another payment.
+    if (payment.status !== "COMPLETED") {
+      const expectedSignature = crypto
+        .createHmac(
+          "sha256",
+          process.env.RAZORPAY_KEY_SECRET
+        )
+        .update(
+          `${razorpay_order_id}|${razorpay_payment_id}`
+        )
+        .digest("hex");
 
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
+      const signaturesMatch =
+        expectedSignature.length === razorpay_signature.length &&
+        crypto.timingSafeEqual(
+          Buffer.from(expectedSignature),
+          Buffer.from(razorpay_signature)
+        );
 
-    const signaturesMatch =
-      expectedSignature.length === razorpay_signature.length &&
-      crypto.timingSafeEqual(
-        Buffer.from(expectedSignature),
-        Buffer.from(razorpay_signature),
+      if (!signaturesMatch) {
+        return res.status(400).json({
+          message: "Invalid payment signature",
+          status: "failed",
+        });
+      }
+
+      const razorpayPayment = await razorpay.payments.fetch(
+        razorpay_payment_id
       );
 
-    if (!signaturesMatch) {
-      return res.status(400).json({
-        message: "Invalid payment signature",
-        status: "failed",
-      });
+      if (
+        razorpayPayment.order_id !== payment.orderId ||
+        razorpayPayment.amount !== payment.price.amount ||
+        razorpayPayment.currency !== payment.price.currency ||
+        razorpayPayment.status !== "captured"
+      ) {
+        return res.status(400).json({
+          message: "Payment verification failed",
+          status: "failed",
+        });
+      }
+
+      payment.paymentId = razorpay_payment_id;
+      payment.signature = razorpay_signature;
+      payment.status = "COMPLETED";
+      await payment.save();
     }
 
-    // Fetch actual payment details from Razorpay
-    const razorpayPayment = await razorpay.payments.fetch(razorpay_payment_id);
+    // For an already completed payment, retry enrollment.
+    console.log(
+      "CREATING ENROLLMENT FOR:",
+      payment.courseId.toString()
+    );
 
-    // Confirm payment belongs to this order
-    if (razorpayPayment.order_id !== payment.orderId) {
-      return res.status(400).json({
-        message: "Payment order ID mismatch",
-        status: "failed",
-      });
-    }
+    const learningServiceUrl =
+      process.env.LEARNING_SERVICE_URL ||
+      "http://localhost:3003";
 
-    // Confirm amount and currency match our database
+    const enrollmentResponse = await fetch(
+      `${learningServiceUrl}/api/learning/enroll`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: req.headers.cookie || "",
+        },
+        body: JSON.stringify({
+          courseId: payment.courseId.toString(),
+        }),
+      }
+    );
+
+    const enrollmentResult = await enrollmentResponse.json();
+
+    // Duplicate enrollment is acceptable.
     if (
-      razorpayPayment.amount !== payment.price.amount ||
-      razorpayPayment.currency !== payment.price.currency
+      !enrollmentResponse.ok &&
+      enrollmentResponse.status !== 409
     ) {
-      return res.status(400).json({
-        message: "Payment amount or currency mismatch",
-        status: "failed",
+      console.error(
+        "Enrollment creation failed:",
+        enrollmentResult
+      );
+
+      return res.status(502).json({
+        message:
+          enrollmentResult.message ||
+          "Payment is completed, but enrollment failed. Please retry.",
+        status: "enrollment_failed",
+        paymentStatus: payment.status,
       });
     }
-
-    // Only mark captured payments as completed
-    if (razorpayPayment.status !== "captured") {
-      return res.status(400).json({
-        message: "Payment is not captured yet",
-        status: "failed",
-      });
-    }
-
-    payment.paymentId = razorpay_payment_id;
-    payment.signature = razorpay_signature;
-    payment.status = "COMPLETED";
-
-    await payment.save();
 
     return res.status(200).json({
-      message: "Payment verified successfully",
+      message:
+        enrollmentResponse.status === 409
+          ? "Payment verified; enrollment already exists"
+          : "Payment verified and enrollment confirmed",
       status: "success",
       data: {
         paymentId: payment.paymentId,
         courseId: payment.courseId,
-        status: payment.status,
+        paymentStatus: payment.status,
+        enrollment:
+          enrollmentResult.data || enrollmentResult,
       },
     });
   } catch (error) {
-    console.error("Payment verification error:", error.message);
+    console.error(
+      "Payment verification error:",
+      error.message
+    );
 
     return res.status(500).json({
       message: "Payment verification failed",
+      status: "failed",
+    });
+  }
+}
+export async function retryEnrollment(req, res) {
+  try {
+    const { courseId } = req.body;
+
+    if (!courseId) {
+      return res.status(400).json({
+        message: "Course ID is required",
+        status: "failed",
+      });
+    }
+
+    // Only use a completed payment belonging to this student.
+    const payment = await Payment.findOne({
+      studentId: req.user.userId,
+      courseId,
+      status: "COMPLETED",
+    });
+
+    if (!payment) {
+      return res.status(404).json({
+        message: "No completed payment found for this course",
+        status: "failed",
+      });
+    }
+
+    const learningServiceUrl =
+      process.env.LEARNING_SERVICE_URL ||
+      "http://localhost:3003";
+
+    const response = await fetch(
+      `${learningServiceUrl}/api/learning/enroll`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          cookie: req.headers.cookie || "",
+        },
+        body: JSON.stringify({
+          courseId: payment.courseId.toString(),
+        }),
+      }
+    );
+
+    const result = await response.json();
+
+    if (response.status === 409) {
+      return res.status(200).json({
+        message: "Enrollment already exists",
+        status: "success",
+      });
+    }
+
+    if (!response.ok) {
+      console.error("Retry enrollment failed:", result);
+
+      return res.status(502).json({
+        message: result.message || "Enrollment retry failed",
+        status: "enrollment_failed",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Course enrollment successful",
+      status: "success",
+      data: result.data || result,
+    });
+  } catch (error) {
+    console.error("Retry enrollment error:", error.message);
+
+    return res.status(500).json({
+      message: "Unable to retry enrollment",
       status: "failed",
     });
   }
