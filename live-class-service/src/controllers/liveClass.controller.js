@@ -76,8 +76,8 @@ export async function getUpcomingClassesController(req, res) {
     const classes = await liveClassModel
       .find({
         isActive: true,
-        status: "scheduled",
-        scheduledAt: { $gte: new Date() },
+        status: { $in: ["scheduled", "live"] },
+        $or: [{ status: "live" }, { scheduledAt: { $gte: new Date() } }],
       })
       .sort({ scheduledAt: 1 });
 
@@ -103,9 +103,7 @@ export async function getMyLiveClassesController(req, res) {
       instructorId: req.user.userId,
     };
 
-    const classes = await liveClassModel
-      .find(filter)
-      .sort({ scheduledAt: 1 });
+    const classes = await liveClassModel.find(filter).sort({ scheduledAt: 1 });
 
     return res.status(200).json({
       message: "Your live classes fetched successfully",
@@ -211,16 +209,11 @@ export async function joinLiveClassController(req, res) {
       });
     }
 
-    const isInstructor =
-      liveClass.instructorId === req.user.userId;
+    const isInstructor = liveClass.instructorId === req.user.userId;
 
     const isAdmin = req.user.role === "admin";
 
-    if (
-      !isInstructor &&
-      !isAdmin &&
-      req.user.role !== "student"
-    ) {
+    if (!isInstructor && !isAdmin && req.user.role !== "student") {
       return res.status(403).json({
         message: "You are not authorized to join this class",
         status: "failed",
@@ -231,29 +224,29 @@ export async function joinLiveClassController(req, res) {
     const roomName = `live-class-${liveClass._id}`;
 
     if (!isInstructor && !isAdmin) {
-  let isEnrolled;
+      let isEnrolled;
 
-  try {
-    isEnrolled = await verifyEnrollment(
-      req.user.userId,
-      liveClass.courseId
-    );
-  } catch (error) {
-    console.error("Enrollment verification error:", error.message);
+      try {
+        isEnrolled = await verifyEnrollment(
+          req.user.userId,
+          liveClass.courseId,
+        );
+      } catch (error) {
+        console.error("Enrollment verification error:", error.message);
 
-    return res.status(503).json({
-      message: "Unable to verify course enrollment",
-      status: "failed",
-    });
-  }
+        return res.status(503).json({
+          message: "Unable to verify course enrollment",
+          status: "failed",
+        });
+      }
 
-  if (!isEnrolled) {
-    return res.status(403).json({
-      message: "You must be enrolled in this course to join",
-      status: "failed",
-    });
-  }
-}
+      if (!isEnrolled) {
+        return res.status(403).json({
+          message: "You must be enrolled in this course to join",
+          status: "failed",
+        });
+      }
+    }
 
     const token = await generateLiveKitToken({
       identity: req.user.userId,
