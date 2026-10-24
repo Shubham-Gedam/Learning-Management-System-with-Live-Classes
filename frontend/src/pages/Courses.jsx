@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { Link } from "react-router-dom";
+import CourseCard from "../components/CourseCard";
 
 export default function Courses() {
   const [courses, setCourses] = useState([]);
@@ -44,20 +44,7 @@ export default function Courses() {
 
       <div className="course-grid">
         {courses.map((course) => (
-          <article className="course-card" key={course._id}>
-            <span className="course-category">{course.category}</span>
-            <h2>
-              <Link to={`/courses/${course._id}`}>{course.title}</Link>
-            </h2>
-            <p>{course.description}</p>
-
-            <div className="course-meta">
-              <span>{course.level}</span>
-              <strong>
-                {course.price === 0 ? "Free" : `₹${course.price}`}
-              </strong>
-            </div>
-          </article>
+          <CourseCard key={course._id} course={course} />
         ))}
       </div>
 

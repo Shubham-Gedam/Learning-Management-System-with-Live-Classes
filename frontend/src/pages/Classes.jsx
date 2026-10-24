@@ -8,6 +8,28 @@ import {
 
 function Classes() {
   const navigate = useNavigate();
+
+  function getClassStatus(liveClass) {
+    const startTime = new Date(liveClass.scheduledAt).getTime();
+    const duration = Number(liveClass.durationMinutes);
+    const now = Date.now();
+
+    if (
+      !Number.isFinite(startTime) ||
+      !Number.isFinite(duration) ||
+      duration <= 0
+    ) {
+      return liveClass.status;
+    }
+
+    const endTime = startTime + duration * 60 * 1000;
+
+    if (now < startTime) return "scheduled";
+    if (now >= endTime) return "ended";
+
+    return liveClass.status === "cancelled" ? "cancelled" : "live";
+  }
+
   const user = JSON.parse(localStorage.getItem("user") || "null");
   const canManageClasses =
     user?.role === "instructor" || user?.role === "admin";
@@ -215,34 +237,38 @@ function Classes() {
           <p>No upcoming live classes are scheduled right now.</p>
         )}
 
-        {classes.map((liveClass) => (
-          <article key={liveClass._id} className="course-card">
-            <h3>{liveClass.title}</h3>
-            <p>{liveClass.description || "Live learning session"}</p>
-            <p>
-              <strong>Scheduled:</strong>{" "}
-              {new Date(liveClass.scheduledAt).toLocaleString()}
-            </p>
-            <p>
-              <strong>Duration:</strong> {liveClass.durationMinutes} minutes
-            </p>
-            <p>
-              <strong>Status:</strong> {liveClass.status}
-            </p>
-            {liveClass.status === "live" &&
-              (user?.role === "student" ||
-                user?.role === "instructor" ||
-                user?.role === "admin") && (
-                <button
-                  type="button"
-                  className="primary-btn"
-                  onClick={() => handleJoin(liveClass)}
-                >
-                  Join Live Class
-                </button>
-              )}
-          </article>
-        ))}
+        {classes.map((liveClass) => {
+          const currentStatus = getClassStatus(liveClass);
+
+          return (
+            <article key={liveClass._id} className="course-card">
+              <h3>{liveClass.title}</h3>
+              <p>{liveClass.description || "Live learning session"}</p>
+              <p>
+                <strong>Scheduled:</strong>{" "}
+                {new Date(liveClass.scheduledAt).toLocaleString()}
+              </p>
+              <p>
+                <strong>Duration:</strong> {liveClass.durationMinutes} minutes
+              </p>
+              <p>
+                <strong>Status:</strong> {currentStatus}
+              </p>
+              {currentStatus === "live" &&
+                (user?.role === "student" ||
+                  user?.role === "instructor" ||
+                  user?.role === "admin") && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => handleJoin(liveClass)}
+                  >
+                    Join Live Class
+                  </button>
+                )}
+            </article>
+          );
+        })}
       </section>
     </main>
   );

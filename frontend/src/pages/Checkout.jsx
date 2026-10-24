@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import axios from "axios";
-
-const PAYMENT_URL = "http://localhost:3006/api/payments";
+import api from "../services/api";
 
 export default function Checkout() {
   const { courseId } = useParams();
@@ -16,9 +14,7 @@ export default function Checkout() {
   useEffect(() => {
     async function fetchCourse() {
       try {
-        const response = await axios.get(
-          `http://localhost:3002/api/courses/${courseId}`,
-        );
+       const response = await api.get(`/courses/${courseId}`);
         setCourse(response.data.course);
       } catch (err) {
         setError(
@@ -37,11 +33,10 @@ export default function Checkout() {
       setPaying(true);
       setError("");
 
-      const response = await axios.post(
-        `${PAYMENT_URL}/retry-enrollment`,
-        { courseId },
-        { withCredentials: true },
-      );
+      const response = await api.post("/payments/retry-enrollment", {
+        courseId,
+      });
+
 
       if (response.data.status === "success") {
         alert("Enrollment successful! Your course is ready.");
@@ -63,11 +58,9 @@ export default function Checkout() {
       setError("");
 
       // Step 1: Create Razorpay order
-      const orderResponse = await axios.post(
-        `${PAYMENT_URL}/create-order`,
-        { courseId },
-        { withCredentials: true },
-      );
+      const orderResponse = await api.post("/payments/create-order", {
+        courseId,
+      });
 
       const order = orderResponse.data.data || orderResponse.data;
 
@@ -86,11 +79,9 @@ export default function Checkout() {
 
         handler: async function (paymentResponse) {
           try {
-            const verifyResponse = await axios.post(
-              `${PAYMENT_URL}/verify-payment`,
-              paymentResponse,
-              { withCredentials: true },
-            );
+            const verifyResponse = await api.post("/payments/verify-payment", {
+              ...paymentResponse
+            });
 
             if (
               verifyResponse.data.status === "success" ||

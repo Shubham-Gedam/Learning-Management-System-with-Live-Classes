@@ -1,10 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
-
-const COURSE_URL = "http://localhost:3002/api/courses";
-const LEARNING_URL = "http://localhost:3003/api/learning";
-const LESSON_URL = "http://localhost:3003/api/lessons";
+import api from "../services/api";
 
 function getYouTubeEmbedUrl(url) {
   if (!url) return "";
@@ -49,7 +45,9 @@ export default function LearnCourse() {
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [lessonHasQuiz, setLessonHasQuiz] = useState(false);
 
+  // Load course, lessons and enrollment
   useEffect(() => {
     let cancelled = false;
 
@@ -58,18 +56,15 @@ export default function LearnCourse() {
       setError("");
 
       try {
-        const [courseResponse, lessonResponse, enrollmentResponse] =
-          await Promise.all([
-            axios.get(`${COURSE_URL}/${courseId}`, {
-              withCredentials: true,
-            }),
-            axios.get(`${LESSON_URL}/course/${courseId}`, {
-              withCredentials: true,
-            }),
-            axios.get(`${LEARNING_URL}/my-courses`, {
-              withCredentials: true,
-            }),
-          ]);
+        const [
+          courseResponse,
+          lessonResponse,
+          enrollmentResponse,
+        ] = await Promise.all([
+          api.get(`/courses/${courseId}`),
+          api.get(`/lessons/course/${courseId}`),
+          api.get("/learning/my-courses"),
+        ]);
 
         if (cancelled) return;
 
@@ -82,6 +77,18 @@ export default function LearnCourse() {
         const allLessons = Array.isArray(lessonData)
           ? lessonData
           : lessonData?.lessons || [];
+          console.log(
+  "Lessons fetched for course:",
+  JSON.stringify(
+    allLessons.map((lesson) => ({
+      id: lesson._id,
+      title: lesson.title,
+      courseId: lesson.courseId,
+    })),
+    null,
+    2
+  )
+);
 
         const enrollmentData = enrollmentResponse.data.data;
         const allEnrollments = Array.isArray(enrollmentData)
@@ -105,6 +112,8 @@ export default function LearnCourse() {
 
         if (allLessons.length > 0) {
           setSelectedLessonId(allLessons[0]._id);
+        } else {
+          setSelectedLessonId("");
         }
 
         if (!currentEnrollment) {
@@ -122,7 +131,9 @@ export default function LearnCourse() {
           );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     }
 
@@ -133,11 +144,55 @@ export default function LearnCourse() {
     };
   }, [courseId]);
 
+  // Find selected lesson BEFORE using it in the quiz effect
   const selectedLesson = lessons.find(
-    (lesson) => lesson._id === selectedLessonId
+    (lesson) => String(lesson._id) === String(selectedLessonId)
   );
 
+  // Check whether the selected lesson has a quiz
+  useEffect(() => {
+    let isMounted = true;
+
+    async function checkQuiz() {
+      setLessonHasQuiz(false);
+
+      if (!selectedLesson?._id) {
+        return;
+      }
+
+      try {
+        const response = await api.get(
+          `/quizzes/lesson/${selectedLesson._id}`
+        );
+
+        const responseData = response.data?.data;
+
+        const quiz = Array.isArray(responseData)
+          ? responseData[0]
+          : responseData?.quiz || responseData;
+
+        if (isMounted) {
+          setLessonHasQuiz(
+            Boolean(quiz?._id || quiz?.id)
+          );
+        }
+      } catch (err) {
+        // A missing quiz should hide the quiz button.
+        if (isMounted) {
+          setLessonHasQuiz(false);
+        }
+      }
+    }
+
+    checkQuiz();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedLesson?._id]);
+
   const completedLessons = enrollment?.completedLessons || [];
+
   const isLessonCompleted = selectedLesson
     ? completedLessons.some(
         (id) => String(id) === String(selectedLesson._id)
@@ -155,10 +210,9 @@ export default function LearnCourse() {
     setMessage("");
 
     try {
-      const response = await axios.patch(
-        `${LEARNING_URL}/${enrollment._id}/complete-lesson`,
-        { lessonId: selectedLesson._id },
-        { withCredentials: true }
+      const response = await api.patch(
+        `/learning/${enrollment._id}/complete-lesson`,
+        { lessonId: selectedLesson._id }
       );
 
       const updatedEnrollment =
@@ -178,7 +232,9 @@ export default function LearnCourse() {
         }));
       }
 
-      setMessage(response.data.message || "Lesson marked as completed.");
+      setMessage(
+        response.data.message || "Lesson marked as completed."
+      );
     } catch (err) {
       console.error("Complete lesson error:", err);
 
@@ -279,12 +335,17 @@ export default function LearnCourse() {
             {selectedLesson ? (
               <>
                 <h2>{selectedLesson.title}</h2>
-                <p>{selectedLesson.description || "Course lesson"}</p>
+
+                <p>
+                  {selectedLesson.description || "Course lesson"}
+                </p>
 
                 {getYouTubeEmbedUrl(selectedLesson.videoUrl) ? (
                   <iframe
                     title={selectedLesson.title}
-                    src={getYouTubeEmbedUrl(selectedLesson.videoUrl)}
+                    src={getYouTubeEmbedUrl(
+                      selectedLesson.videoUrl
+                    )}
                     width="100%"
                     style={{
                       aspectRatio: "16 / 9",
@@ -329,6 +390,23 @@ export default function LearnCourse() {
                       ? "✓ Lesson Completed"
                       : "Mark as Complete"}
                 </button>
+
+                {lessonHasQuiz && (
+                  <Link
+                    to={`/quiz/${selectedLesson._id}`}
+                    style={{
+                      display: "inline-block",
+                      marginTop: "16px",
+                      marginLeft: "12px",
+                      padding: "12px 18px",
+                      textDecoration: "none",
+                      border: "1px solid currentColor",
+                      borderRadius: "6px",
+                    }}
+                  >
+                    Take Quiz →
+                  </Link>
+                )}
               </>
             ) : (
               <p>Select a lesson to start learning.</p>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import api from "../services/api";
 import { issueCertificate } from "../services/certificate.service";
 
 export default function MyCourses() {
@@ -13,20 +13,16 @@ export default function MyCourses() {
   useEffect(() => {
     async function fetchMyCourses() {
       try {
-        const response = await axios.get(
-          "http://localhost:3003/api/learning/my-courses",
-          { withCredentials: true },
-        );
+        const response = await api.get("/learning/my-courses", { withCredentials: true });
 
         const enrollments = response.data.data || [];
 
         const results = await Promise.all(
           enrollments.map(async (enrollment) => {
             try {
-              const courseResponse = await axios.get(
-                `http://localhost:3002/api/courses/${enrollment.courseId}`,
-                { withCredentials: true },
-              );
+              const courseResponse = await api.get(`/courses/${enrollment.courseId}`, {
+                withCredentials: true,
+              });
 
               return {
                 ...enrollment,

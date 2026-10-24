@@ -1,9 +1,9 @@
-
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import "./App.css";
 
 import { AuthProvider } from "./context/AuthContext";
+import MainLayout from "./layouts/MainLayout";
 
 import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
@@ -18,35 +18,37 @@ import Classes from "./pages/Classes";
 import Certificate from "./pages/Certificate";
 import NotFound from "./pages/NotFound";
 import LiveRoom from "./pages/LiveRoom";
+import Quiz from "./pages/Quiz";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Navbar />
-
         <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
+          <Route element={<MainLayout />}>
+            <Route path="/" element={<Home />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
 
-          <Route path="/courses" element={<Courses />} />
-          <Route path="/courses/:courseId" element={<CourseDetails />} />
+            <Route path="/courses" element={<Courses />} />
+            <Route path="/courses/:courseId" element={<CourseDetails />} />
 
-          <Route path="/my-courses" element={<MyCourses />} />
-          <Route path="/learn/:courseId" element={<LearnCourse />} />
+            <Route path="/my-courses" element={<MyCourses />} />
+            <Route path="/learn/:courseId" element={<LearnCourse />} />
 
-          <Route path="/checkout/:courseId" element={<Checkout />} />
+            <Route path="/checkout/:courseId" element={<Checkout />} />
 
-          <Route path="/classes" element={<Classes />} />
-          <Route path="/live-room" element={<LiveRoom />} />
+            <Route path="/classes" element={<Classes />} />
+            <Route path="/live-room" element={<LiveRoom />} />
 
-          <Route
-            path="/certificate/:certificateId"
-            element={<Certificate />}
-          />
+            <Route
+              path="/certificate/:certificateId"
+              element={<Certificate />}
+            />
+            <Route path="/quiz/:lessonId" element={<Quiz />} />
 
-          <Route path="*" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
+          </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
