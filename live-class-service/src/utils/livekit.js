@@ -1,10 +1,29 @@
-import { AccessToken } from "livekit-server-sdk";
+import { AccessToken, RoomServiceClient } from "livekit-server-sdk";
 
-export async function generateLiveKitToken({
-  identity,
-  roomName,
-  role,
-}) {
+let roomService;
+
+function getRoomService() {
+  const url = process.env.LIVEKIT_URL;
+  const apiKey = process.env.LIVEKIT_API_KEY;
+  const apiSecret = process.env.LIVEKIT_API_SECRET;
+
+  if (!url || !apiKey || !apiSecret) {
+    throw new Error("LiveKit environment variables are missing");
+  }
+
+  if (!roomService) {
+    roomService = new RoomServiceClient(url, apiKey, apiSecret);
+  }
+
+  return roomService;
+}
+
+export async function endLiveKitRoom(roomName) {
+  const client = getRoomService();
+  await client.deleteRoom(roomName);
+}
+
+export async function generateLiveKitToken({ identity, roomName, role }) {
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 

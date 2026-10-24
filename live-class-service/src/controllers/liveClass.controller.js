@@ -1,5 +1,5 @@
 import liveClassModel from "../models/liveclass.model.js";
-import { generateLiveKitToken } from "../utils/livekit.js";
+import { generateLiveKitToken, endLiveKitRoom  } from "../utils/livekit.js";
 import { verifyEnrollment } from "../utils/verifyEnrollment.js";
 
 // Create a live class
@@ -119,10 +119,11 @@ export async function getMyLiveClassesController(req, res) {
   }
 }
 
-// Update live class status
+// Update live class status and end the room for everyone
 export async function updateLiveClassStatusController(req, res) {
   try {
     const { status } = req.body;
+    const { classId } = req.params;
 
     const allowedStatuses = ["live", "completed", "cancelled"];
 
@@ -134,7 +135,7 @@ export async function updateLiveClassStatusController(req, res) {
     }
 
     const liveClass = await liveClassModel.findOne({
-      _id: req.params.classId,
+      _id: classId,
       isActive: true,
     });
 
@@ -145,32 +146,45 @@ export async function updateLiveClassStatusController(req, res) {
       });
     }
 
-    if (
-      liveClass.instructorId !== req.user.userId &&
-      req.user.role !== "admin"
-    ) {
+    const isInstructor = liveClass.instructorId === req.user.userId;
+    const isAdmin = req.user.role === "admin";
+
+    if (!isInstructor && !isAdmin) {
       return res.status(403).json({
         message: "You cannot update this live class",
         status: "failed",
       });
     }
 
-    if (liveClass.status === "completed" || liveClass.status === "cancelled") {
+    if (
+      liveClass.status === "completed" ||
+      liveClass.status === "cancelled"
+    ) {
       return res.status(400).json({
         message: "This live class has already ended or been cancelled",
         status: "failed",
       });
     }
 
+    if (status === "completed") {
+      const roomName = `live-class-${liveClass._id}`;
+      await endLiveKitRoom(roomName);
+    }
+
     liveClass.status = status;
     await liveClass.save();
 
     return res.status(200).json({
-      message: "Live class status updated successfully",
+      message:
+        status === "completed"
+          ? "Live class ended for all participants"
+          : "Live class status updated successfully",
       status: "success",
       data: liveClass,
     });
   } catch (error) {
+    console.error("Update live class status error:", error.message);
+
     if (error.name === "CastError") {
       return res.status(400).json({
         message: "Invalid live class ID",
@@ -180,6 +194,7 @@ export async function updateLiveClassStatusController(req, res) {
 
     return res.status(500).json({
       message: "Failed to update live class status",
+      error: error.message,
       status: "failed",
     });
   }
