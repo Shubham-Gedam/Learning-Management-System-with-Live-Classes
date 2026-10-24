@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import api from "../services/api";
+import paymentService from "../services/payment.service";
 
 export default function InstructorDashboard() {
   const [courses, setCourses] = useState([]);
@@ -9,6 +9,9 @@ export default function InstructorDashboard() {
   const [publishingId, setPublishingId] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [earnings, setEarnings] = useState(null);
+  const [earningsLoading, setEarningsLoading] = useState(true);
+  const [earningsError, setEarningsError] = useState("");
 
   async function fetchMyCourses() {
     try {
@@ -16,22 +19,38 @@ export default function InstructorDashboard() {
       const response = await api.get("/courses/my");
       setCourses(response.data.courses || []);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          "Unable to load your courses."
-      );
+      setError(err.response?.data?.message || "Unable to load your courses.");
     } finally {
       setLoading(false);
     }
   }
+  const fetchInstructorEarnings = async () => {
+    try {
+      setEarningsLoading(true);
+      setEarningsError("");
+
+      const response = await paymentService.getInstructorEarnings();
+
+      if (response.status === "success") {
+        setEarnings(response.data);
+      }
+    } catch (error) {
+      setEarningsError(
+        error.response?.data?.message || "Failed to load instructor earnings",
+      );
+    } finally {
+      setEarningsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchMyCourses();
+    fetchInstructorEarnings();
   }, []);
 
   async function handlePublish(course) {
     const confirmed = window.confirm(
-      `Are you sure you want to publish "${course.title}"?`
+      `Are you sure you want to publish "${course.title}"?`,
     );
 
     if (!confirmed) return;
@@ -47,17 +66,15 @@ export default function InstructorDashboard() {
 
       setCourses((previousCourses) =>
         previousCourses.map((item) =>
-          item._id === course._id
-            ? { ...item, status: "published" }
-            : item
-        )
+          item._id === course._id ? { ...item, status: "published" } : item,
+        ),
       );
 
       setMessage(`"${course.title}" published successfully!`);
     } catch (err) {
       setError(
         err.response?.data?.message ||
-          "Unable to publish the course. Please try again."
+          "Unable to publish the course. Please try again.",
       );
     } finally {
       setPublishingId("");
@@ -73,10 +90,7 @@ export default function InstructorDashboard() {
         <div className="dashboard-card">
           <h2>Create Course</h2>
           <p>Create a new course for your students.</p>
-          <Link
-            to="/instructor/create-course"
-            className="register-btn"
-          >
+          <Link to="/instructor/create-course" className="register-btn">
             Create Course
           </Link>
         </div>
@@ -84,10 +98,7 @@ export default function InstructorDashboard() {
         <div className="dashboard-card">
           <h2>Upload Video</h2>
           <p>Upload and process videos for your courses.</p>
-          <Link
-            to="/instructor/upload"
-            className="register-btn"
-          >
+          <Link to="/instructor/upload" className="register-btn">
             Upload Video
           </Link>
         </div>
@@ -102,75 +113,65 @@ export default function InstructorDashboard() {
       </section>
 
       <section className="my-courses-section">
-        <h2>My Courses</h2>
-        <p>Manage the courses you have created.</p>
+        <h2>Instructor Earnings</h2>
+        <p>Track your course sales and earnings.</p>
 
-        {loading && <p>Loading your courses...</p>}
+        {earningsLoading && <p>Loading earnings...</p>}
 
-        {error && (
+        {earningsError && (
           <p role="alert" className="error-message">
-            {error}
+            {earningsError}
           </p>
         )}
 
-        {message && (
-          <p role="status" className="success-message">
-            {message}
-          </p>
-        )}
-
-        {!loading && !error && courses.length === 0 && (
-          <p>You haven't created any courses yet.</p>
-        )}
-
-        <div className="dashboard-actions">
-          {courses.map((course) => (
-            <article className="dashboard-card" key={course._id}>
-              <h3>{course.title}</h3>
-              <p>{course.description}</p>
-
-              <p>
-                <strong>Status:</strong>{" "}
-                {course.status === "published"
-                  ? "Published"
-                  : "Draft"}
-              </p>
-
-              <p>
-                <strong>Price:</strong>{" "}
-                {Number(course.price) === 0
-                  ? "Free"
-                  : `₹${course.price}`}
-              </p>
-
-              {course.status === "draft" && (
-                <button
-                  type="button"
-                  className="register-btn"
-                  onClick={() => handlePublish(course)}
-                  disabled={publishingId === course._id}
-                >
-                  {publishingId === course._id
-                    ? "Publishing..."
-                    : "Publish Course"}
-                </button>
-              )}
-
-              {course.status === "published" && (
-                <p>✓ This course is published.</p>
-              )}
-
-              <div style={{ marginTop: "12px" }}>
-                <Link
-                  to="/instructor/upload"
-                  className="register-btn"
-                >
-                  Upload Video
-                </Link>
+        {!earningsLoading && earnings && (
+          <>
+            <div className="dashboard-actions">
+              <div className="dashboard-card">
+                <h3>Total Earnings</h3>
+                <h2>
+                  ₹
+                  {Number(earnings.totalEarnings || 0).toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </h2>
               </div>
-            </article>
-          ))}
-        </div>
+
+              <div className="dashboard-card">
+                <h3>Total Sales</h3>
+                <h2>{earnings.totalSales || 0}</h2>
+              </div>
+            </div>
+
+            <h3>Course-wise Earnings</h3>
+
+            {earnings.courses?.length === 0 ? (
+              <p>No course earnings available yet.</p>
+            ) : (
+              <div className="dashboard-actions">
+                {earnings.courses?.map((course) => (
+                  <article className="dashboard-card" key={course.courseId}>
+                    <h3>{course.title}</h3>
+                    <p>
+                      <strong>Sales:</strong> {course.totalSales}
+                    </p>
+                    <p>
+                      <strong>Earnings:</strong> ₹
+                      {Number(course.totalEarnings || 0).toLocaleString(
+                        "en-IN",
+                        {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        },
+                      )}
+                    </p>
+                  </article>
+                ))}
+              </div>
+            )}
+          </>
+        )}
       </section>
     </main>
   );

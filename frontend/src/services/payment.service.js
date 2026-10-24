@@ -11,19 +11,18 @@ const paymentService = {
 
   // Verify Razorpay payment
   verifyPayment: async (paymentData) => {
-    const response = await api.post(
-      "/payments/verify-payment",
-      paymentData
-    );
+    const response = await api.post("/payments/verify-payment", paymentData);
     return response.data;
   },
 
   // Retry enrollment if payment succeeded but enrollment failed
   retryEnrollment: async (paymentData) => {
-    const response = await api.post(
-      "/payments/retry-enrollment",
-      paymentData
-    );
+    const response = await api.post("/payments/retry-enrollment", paymentData);
+    return response.data;
+  },
+
+  getInstructorEarnings: async () => {
+    const response = await api.get("/payments/instructor/earnings");
     return response.data;
   },
 };

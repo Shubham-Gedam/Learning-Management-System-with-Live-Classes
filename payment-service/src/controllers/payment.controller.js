@@ -315,3 +315,94 @@ export async function retryEnrollment(req, res) {
     });
   }
 }
+
+export async function getInstructorEarnings(req, res) {
+  try {
+    const courseServiceUrl = process.env.COURSE_SERVICE_URL;
+
+    if (!courseServiceUrl) {
+      return res.status(500).json({
+        message: "Course Service URL is missing",
+        status: "failed",
+      });
+    }
+
+    // Get courses belonging to the logged-in instructor.
+    const coursesResponse = await fetch(
+      `${courseServiceUrl}/api/courses/my`,
+      {
+        headers: {
+          cookie: req.headers.cookie || "",
+        },
+      }
+    );
+
+    if (!coursesResponse.ok) {
+      return res.status(502).json({
+        message: "Unable to fetch instructor courses",
+        status: "failed",
+      });
+    }
+
+    const coursesResult = await coursesResponse.json();
+    const courses = coursesResult.courses || [];
+    const courseIds = new Set(
+      courses.map((course) => String(course._id))
+    );
+
+    // Only verified, completed payments for these courses count.
+    const payments = await Payment.find({
+      status: "COMPLETED",
+      courseId: { $in: [...courseIds] },
+    }).sort({ createdAt: -1 });
+
+    const earningsByCourse = new Map();
+
+    for (const course of courses) {
+      earningsByCourse.set(String(course._id), {
+        courseId: String(course._id),
+        title: course.title,
+        price: Number(course.price) || 0,
+        totalSales: 0,
+        totalEarnings: 0,
+      });
+    }
+
+    for (const payment of payments) {
+      const item = earningsByCourse.get(String(payment.courseId));
+
+      if (item) {
+        item.totalSales += 1;
+        item.totalEarnings += Number(payment.price?.amount || 0) / 100;
+      }
+    }
+
+    const courseEarnings = [...earningsByCourse.values()];
+    const totalSales = courseEarnings.reduce(
+      (sum, course) => sum + course.totalSales,
+      0
+    );
+    const totalEarnings = courseEarnings.reduce(
+      (sum, course) => sum + course.totalEarnings,
+      0
+    );
+
+    return res.status(200).json({
+      status: "success",
+      message: "Instructor earnings fetched successfully",
+      data: {
+        totalSales,
+        totalEarnings,
+        currency: "INR",
+        courses: courseEarnings,
+      },
+    });
+  } catch (error) {
+    console.error("Get instructor earnings error:", error.message);
+
+    return res.status(500).json({
+      message: "Failed to fetch instructor earnings",
+      status: "failed",
+    });
+  }
+}

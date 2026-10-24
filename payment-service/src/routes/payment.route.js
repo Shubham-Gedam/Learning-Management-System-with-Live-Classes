@@ -8,5 +8,6 @@ const router = express.Router();
 router.post("/create-order",authMiddleware,authorizeRoles("student"), paymentController.createOrder);
 router.post("/verify-payment",authMiddleware,authorizeRoles("student"), paymentController.verifyPayment);
 router.post("/retry-enrollment",authMiddleware,authorizeRoles("student"),paymentController.retryEnrollment);
+router.get("/instructor/earnings",authMiddleware,authorizeRoles("instructor", "admin"),paymentController.getInstructorEarnings);
 
 export default router;
