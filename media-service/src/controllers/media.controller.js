@@ -5,7 +5,8 @@ import videoQueue from "../queues/video.queue.js";
 // 1. Create media metadata
 export async function createMediaController(req, res) {
   try {
-    const {title,description,mediaType,fileUrl,publicId,courseId,} = req.body;
+    const { title, description, mediaType, fileUrl, publicId, courseId } =
+      req.body;
 
     if (!title || !mediaType || !fileUrl) {
       return res.status(400).json({
@@ -48,7 +49,7 @@ export async function createMediaController(req, res) {
 // 2. Get all active media
 export async function getAllMediaController(req, res) {
   try {
-    const { courseId, mediaType } = req.query;
+    const { courseId, mediaType, lessonId } = req.query;
 
     const filter = { isActive: true };
 
@@ -63,10 +64,11 @@ export async function getAllMediaController(req, res) {
 
       filter.mediaType = mediaType;
     }
+    if (lessonId) {
+      filter.lessonId = lessonId;
+    }
 
-    const media = await mediaModel
-      .find(filter)
-      .sort({ createdAt: -1 });
+    const media = await mediaModel.find(filter).sort({ createdAt: -1 });
 
     return res.status(200).json({
       message: "Media fetched successfully",
@@ -132,10 +134,7 @@ export async function deleteMediaController(req, res) {
       });
     }
 
-    if (
-      media.uploadedBy !== req.user.userId &&
-      req.user.role !== "admin"
-    ) {
+    if (media.uploadedBy !== req.user.userId && req.user.role !== "admin") {
       return res.status(403).json({
         message: "You cannot delete this media",
         status: "failed",
@@ -185,9 +184,7 @@ export async function uploadVideoController(req, res) {
       });
     }
 
-    const fileUrl = `/uploads/videos/${path.basename(
-      req.file.path
-    )}`;
+    const fileUrl = `/uploads/videos/${path.basename(req.file.path)}`;
 
     uploadedMedia = await mediaModel.create({
       title: title.trim(),
@@ -230,11 +227,13 @@ export async function uploadVideoController(req, res) {
 // 6. Check video processing status
 export async function getVideoProcessingStatusController(req, res) {
   try {
-    const media = await mediaModel.findOne({
-      _id: req.params.mediaId,
-      mediaType: "video",
-      isActive: true,
-    }).select("title fileUrl processingStatus");
+    const media = await mediaModel
+      .findOne({
+        _id: req.params.mediaId,
+        mediaType: "video",
+        isActive: true,
+      })
+      .select("title fileUrl processingStatus");
 
     if (!media) {
       return res.status(404).json({
@@ -258,6 +257,70 @@ export async function getVideoProcessingStatusController(req, res) {
 
     return res.status(500).json({
       message: "Failed to fetch video processing status",
+      status: "failed",
+    });
+  }
+}
+
+export async function attachMediaToLessonController(req, res) {
+  try {
+    const { mediaId } = req.params;
+    const { lessonId } = req.body;
+
+    if (!lessonId || !String(lessonId).trim()) {
+      return res.status(400).json({
+        message: "Lesson ID is required",
+        status: "failed",
+      });
+    }
+
+    const media = await mediaModel.findOne({
+      _id: mediaId,
+      isActive: true,
+      mediaType: "video",
+    });
+
+    if (!media) {
+      return res.status(404).json({
+        message: "Video not found",
+        status: "failed",
+      });
+    }
+
+    if (media.uploadedBy !== req.user.userId && req.user.role !== "admin") {
+      return res.status(403).json({
+        message: "You cannot modify this video",
+        status: "failed",
+      });
+    }
+
+    if (media.processingStatus !== "completed") {
+      return res.status(400).json({
+        message: "Wait until video processing is completed",
+        status: "failed",
+      });
+    }
+
+    media.lessonId = String(lessonId).trim();
+    await media.save();
+
+    return res.status(200).json({
+      message: "Video linked to lesson successfully",
+      status: "success",
+      data: media,
+    });
+  } catch (error) {
+    console.error("Attach media to lesson error:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid media ID",
+        status: "failed",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Failed to link video to lesson",
       status: "failed",
     });
   }

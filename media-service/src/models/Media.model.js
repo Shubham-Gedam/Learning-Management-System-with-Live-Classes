@@ -35,6 +35,11 @@ const mediaSchema = new mongoose.Schema(
       type: String,
       default: null,
     },
+    lessonId: {
+      type: String,
+      default: null,
+      trim: true,
+    },
 
     uploadedBy: {
       type: String,
@@ -51,7 +56,7 @@ const mediaSchema = new mongoose.Schema(
       default: "pending",
     },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
 const mediaModel = mongoose.model("Media", mediaSchema);

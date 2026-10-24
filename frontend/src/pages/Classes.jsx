@@ -4,37 +4,21 @@ import {
   getUpcomingClasses,
   createLiveClass,
   joinLiveClass,
+  updateLiveClassStatus,
 } from "../services/liveClass.service";
+import api from "../services/api";
 
 function Classes() {
   const navigate = useNavigate();
-
-  function getClassStatus(liveClass) {
-    const startTime = new Date(liveClass.scheduledAt).getTime();
-    const duration = Number(liveClass.durationMinutes);
-    const now = Date.now();
-
-    if (
-      !Number.isFinite(startTime) ||
-      !Number.isFinite(duration) ||
-      duration <= 0
-    ) {
-      return liveClass.status;
-    }
-
-    const endTime = startTime + duration * 60 * 1000;
-
-    if (now < startTime) return "scheduled";
-    if (now >= endTime) return "ended";
-
-    return liveClass.status === "cancelled" ? "cancelled" : "live";
-  }
-
   const user = JSON.parse(localStorage.getItem("user") || "null");
+
   const canManageClasses =
     user?.role === "instructor" || user?.role === "admin";
+
   const [classes, setClasses] = useState([]);
+  const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingCourses, setLoadingCourses] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
@@ -47,11 +31,31 @@ function Classes() {
     durationMinutes: "60",
   });
 
+  function getClassStatus(liveClass) {
+    const startTime = new Date(liveClass.scheduledAt).getTime();
+    const duration = Number(liveClass.durationMinutes);
+
+    if (
+      !Number.isFinite(startTime) ||
+      !Number.isFinite(duration) ||
+      duration <= 0
+    ) {
+      return liveClass.status;
+    }
+
+    const endTime = startTime + duration * 60 * 1000;
+
+    if (liveClass.status === "cancelled") return "cancelled";
+    if (Date.now() < startTime) return "scheduled";
+    if (Date.now() >= endTime) return "ended";
+
+    return "live";
+  }
+
   async function fetchClasses() {
     try {
       setError("");
       const response = await getUpcomingClasses();
-      console.log("Upcoming classes API response:", response.data);
       setClasses(response.data.data ?? []);
     } catch (err) {
       setError(
@@ -62,8 +66,40 @@ function Classes() {
     }
   }
 
+  async function fetchCourses() {
+    try {
+      setLoadingCourses(true);
+
+      const response = await api.get("/courses");
+      const allCourses = response.data.courses || [];
+      const userId = user?._id || user?.id;
+
+      const availableCourses =
+        user?.role === "admin"
+          ? allCourses
+          : allCourses.filter((course) => {
+              const instructorId =
+                typeof course.instructor === "object"
+                  ? course.instructor?._id
+                  : course.instructor;
+
+              return userId && String(instructorId) === String(userId);
+            });
+
+      setCourses(availableCourses);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to load your courses.");
+    } finally {
+      setLoadingCourses(false);
+    }
+  }
+
   useEffect(() => {
     fetchClasses();
+
+    if (canManageClasses) {
+      fetchCourses();
+    }
   }, []);
 
   function handleChange(event) {
@@ -80,6 +116,11 @@ function Classes() {
     setError("");
     setMessage("");
 
+    if (!form.courseId) {
+      setError("Please select a course.");
+      return;
+    }
+
     if (new Date(form.scheduledAt) <= new Date()) {
       setError("Please select a future date and time.");
       return;
@@ -91,7 +132,7 @@ function Classes() {
       await createLiveClass({
         title: form.title.trim(),
         description: form.description.trim(),
-        courseId: form.courseId.trim(),
+        courseId: form.courseId,
         scheduledAt: new Date(form.scheduledAt).toISOString(),
         durationMinutes: Number(form.durationMinutes),
       });
@@ -115,6 +156,7 @@ function Classes() {
       setSaving(false);
     }
   }
+
   async function handleJoin(liveClass) {
     try {
       setError("");
@@ -138,6 +180,27 @@ function Classes() {
       setError(err.response?.data?.message || "Unable to join the live class.");
     }
   }
+  async function handleStart(liveClass) {
+    try {
+      setError("");
+      setMessage("");
+
+      await updateLiveClassStatus(liveClass._id, "live");
+
+      setMessage("Live class started successfully.");
+
+      await fetchClasses();
+
+      await handleJoin({
+        ...liveClass,
+        status: "live",
+      });
+    } catch (err) {
+      setError(
+        err.response?.data?.message || "Unable to start the live class.",
+      );
+    }
+  }
 
   return (
     <main className="hero">
@@ -150,10 +213,11 @@ function Classes() {
       </h1>
 
       <p>Schedule a session or view upcoming classes.</p>
+
       {canManageClasses && (
         <section>
           <h2>Schedule a Live Class</h2>
-          <p>Instructor/Admin only. Your backend will verify your role.</p>
+          <p>Choose one of your courses and schedule a live session.</p>
 
           <form onSubmit={handleSubmit}>
             <p>
@@ -180,15 +244,36 @@ function Classes() {
             </p>
 
             <p>
-              <label htmlFor="courseId">Course ID</label>
-              <input
+              <label htmlFor="courseId">Select course</label>
+              <select
                 id="courseId"
                 name="courseId"
                 value={form.courseId}
                 onChange={handleChange}
-                placeholder="Paste the course ID"
                 required
-              />
+                disabled={loadingCourses || courses.length === 0}
+              >
+                <option value="">
+                  {loadingCourses
+                    ? "Loading your courses..."
+                    : courses.length === 0
+                      ? "No courses available"
+                      : "Choose a course"}
+                </option>
+
+                {courses.map((course) => (
+                  <option key={course._id} value={course._id}>
+                    {course.title}
+                  </option>
+                ))}
+              </select>
+
+              {!loadingCourses && courses.length === 0 && (
+                <small>
+                  No courses found for your account. Check that you are logged
+                  in as the instructor who created the course.
+                </small>
+              )}
             </p>
 
             <p>
@@ -199,7 +284,11 @@ function Classes() {
                 type="datetime-local"
                 value={form.scheduledAt}
                 onChange={handleChange}
-                min={new Date().toISOString().slice(0, 16)}
+                min={new Date(
+                  Date.now() - new Date().getTimezoneOffset() * 60000,
+                )
+                  .toISOString()
+                  .slice(0, 16)}
                 required
               />
             </p>
@@ -218,7 +307,11 @@ function Classes() {
               />
             </p>
 
-            <button type="submit" className="primary-btn" disabled={saving}>
+            <button
+              type="submit"
+              className="primary-btn"
+              disabled={saving || loadingCourses || courses.length === 0}
+            >
               {saving ? "Scheduling..." : "Schedule Class"}
             </button>
           </form>
@@ -234,7 +327,7 @@ function Classes() {
         {loading && <p>Loading live classes...</p>}
 
         {!loading && classes.length === 0 && (
-          <p>No upcoming live classes are scheduled right now.</p>
+          <p>No live classes are scheduled right now.</p>
         )}
 
         {classes.map((liveClass) => {
@@ -254,10 +347,21 @@ function Classes() {
               <p>
                 <strong>Status:</strong> {currentStatus}
               </p>
+
+              {canManageClasses &&
+                currentStatus === "scheduled" &&
+                liveClass.status !== "cancelled" && (
+                  <button
+                    type="button"
+                    className="primary-btn"
+                    onClick={() => handleStart(liveClass)}
+                  >
+                    Start Live Class
+                  </button>
+                )}
+
               {currentStatus === "live" &&
-                (user?.role === "student" ||
-                  user?.role === "instructor" ||
-                  user?.role === "admin") && (
+                ["student", "instructor", "admin"].includes(user?.role) && (
                   <button
                     type="button"
                     className="primary-btn"

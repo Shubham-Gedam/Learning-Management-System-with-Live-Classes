@@ -215,3 +215,34 @@ export async function deleteCourseController(req, res) {
     });
   }
 }
+
+// Get courses created by the logged-in instructor
+export async function getMyCoursesController(req, res) {
+  try {
+    const filter =
+      req.user.role === "admin"
+        ? { isActive: true }
+        : {
+            instructor: req.user.userId,
+            isActive: true,
+          };
+
+    const courses = await courseModel
+      .find(filter)
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      totalCourses: courses.length,
+      courses,
+      message: "Your courses fetched successfully",
+      status: "success",
+    });
+  } catch (error) {
+    console.error("Get my courses error:", error.message);
+
+    return res.status(500).json({
+      message: "Failed to fetch your courses",
+      status: "failed",
+    });
+  }
+}

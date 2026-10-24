@@ -19,6 +19,9 @@ import Certificate from "./pages/Certificate";
 import NotFound from "./pages/NotFound";
 import LiveRoom from "./pages/LiveRoom";
 import Quiz from "./pages/Quiz";
+import InstructorUpload from "./pages/InstructorUpload";
+import InstructorDashboard from "./pages/InstructorDashboard";
+import CreateCourse from "./pages/CreateCourse";
 
 function App() {
   return (
@@ -37,6 +40,10 @@ function App() {
             <Route path="/learn/:courseId" element={<LearnCourse />} />
 
             <Route path="/checkout/:courseId" element={<Checkout />} />
+
+            <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
+            <Route path="/instructor/upload" element={<InstructorUpload />} />
+            <Route path="/instructor/create-course" element={<CreateCourse />}/>
 
             <Route path="/classes" element={<Classes />} />
             <Route path="/live-room" element={<LiveRoom />} />

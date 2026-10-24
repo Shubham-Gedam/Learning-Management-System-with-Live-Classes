@@ -5,11 +5,20 @@ import { authorizeRoles } from "../middleware/role.middleware.js";
 
 const router = express.Router();
 
-// Public routes: students bhi published courses dekh sakte hain
 router.get("/", courseController.getAllCoursesController);
+
+// Instructor/Admin routes
+router.get(
+  "/my",
+  authMiddleware,
+  authorizeRoles("instructor", "admin"),
+  courseController.getMyCoursesController
+);
+
+// Get a single published course
 router.get("/:courseId", courseController.getCourseByIdController);
 
-// Instructor-only routes
+// Create a course
 router.post(
   "/",
   authMiddleware,
@@ -17,6 +26,7 @@ router.post(
   courseController.createCourseController
 );
 
+// Update a course
 router.patch(
   "/:courseId",
   authMiddleware,
@@ -24,6 +34,7 @@ router.patch(
   courseController.updateCourseController
 );
 
+// Delete a course
 router.delete(
   "/:courseId",
   authMiddleware,

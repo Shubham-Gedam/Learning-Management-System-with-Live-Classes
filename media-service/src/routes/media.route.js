@@ -6,7 +6,8 @@ import {
   getMediaByIdController,
   deleteMediaController,
   uploadVideoController,
-  getVideoProcessingStatusController
+  getVideoProcessingStatusController,
+  attachMediaToLessonController
 } from "../controllers/media.controller.js";
 import upload from "../middleware/upload.middleware.js";
 
@@ -32,5 +33,6 @@ router.post(
 // Authenticated write endpoints
 router.post("/", authMiddleware, authorizeRoles("instructor", "admin"), createMediaController);
 router.delete("/:mediaId", authMiddleware, authorizeRoles("instructor", "admin"), deleteMediaController);
+router.patch("/:mediaId/lesson",authMiddleware,authorizeRoles("instructor", "admin"), attachMediaToLessonController);
 
 export default router;

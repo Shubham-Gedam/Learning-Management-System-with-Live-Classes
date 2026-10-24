@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import Hls from "hls.js";
 import api from "../services/api";
 
 function getYouTubeEmbedUrl(url) {
@@ -39,8 +40,12 @@ export default function LearnCourse() {
 
   const [course, setCourse] = useState(null);
   const [lessons, setLessons] = useState([]);
+  const [uploadedVideos, setUploadedVideos] = useState([]);
+  const [selectedUploadedVideo, setSelectedUploadedVideo] = useState(null);
+  const uploadedVideoRef = useRef(null);
   const [enrollment, setEnrollment] = useState(null);
   const [selectedLessonId, setSelectedLessonId] = useState("");
+  const [videoError, setVideoError] = useState("");
   const [loading, setLoading] = useState(true);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState("");
@@ -56,15 +61,12 @@ export default function LearnCourse() {
       setError("");
 
       try {
-        const [
-          courseResponse,
-          lessonResponse,
-          enrollmentResponse,
-        ] = await Promise.all([
-          api.get(`/courses/${courseId}`),
-          api.get(`/lessons/course/${courseId}`),
-          api.get("/learning/my-courses"),
-        ]);
+        const [courseResponse, lessonResponse, enrollmentResponse] =
+          await Promise.all([
+            api.get(`/courses/${courseId}`),
+            api.get(`/lessons/course/${courseId}`),
+            api.get("/learning/my-courses"),
+          ]);
 
         if (cancelled) return;
 
@@ -77,18 +79,18 @@ export default function LearnCourse() {
         const allLessons = Array.isArray(lessonData)
           ? lessonData
           : lessonData?.lessons || [];
-          console.log(
-  "Lessons fetched for course:",
-  JSON.stringify(
-    allLessons.map((lesson) => ({
-      id: lesson._id,
-      title: lesson.title,
-      courseId: lesson.courseId,
-    })),
-    null,
-    2
-  )
-);
+        console.log(
+          "Lessons fetched for course:",
+          JSON.stringify(
+            allLessons.map((lesson) => ({
+              id: lesson._id,
+              title: lesson.title,
+              courseId: lesson.courseId,
+            })),
+            null,
+            2,
+          ),
+        );
 
         const enrollmentData = enrollmentResponse.data.data;
         const allEnrollments = Array.isArray(enrollmentData)
@@ -117,9 +119,7 @@ export default function LearnCourse() {
         }
 
         if (!currentEnrollment) {
-          setError(
-            "Your enrollment was not found. Please check My Learning."
-          );
+          setError("Your enrollment was not found. Please check My Learning.");
         }
       } catch (err) {
         console.error("Load course error:", err);
@@ -127,7 +127,7 @@ export default function LearnCourse() {
         if (!cancelled) {
           setError(
             err.response?.data?.message ||
-              "Unable to load the course. Please try again."
+              "Unable to load the course. Please try again.",
           );
         }
       } finally {
@@ -146,7 +146,7 @@ export default function LearnCourse() {
 
   // Find selected lesson BEFORE using it in the quiz effect
   const selectedLesson = lessons.find(
-    (lesson) => String(lesson._id) === String(selectedLessonId)
+    (lesson) => String(lesson._id) === String(selectedLessonId),
   );
 
   // Check whether the selected lesson has a quiz
@@ -161,9 +161,7 @@ export default function LearnCourse() {
       }
 
       try {
-        const response = await api.get(
-          `/quizzes/lesson/${selectedLesson._id}`
-        );
+        const response = await api.get(`/quizzes/lesson/${selectedLesson._id}`);
 
         const responseData = response.data?.data;
 
@@ -172,9 +170,7 @@ export default function LearnCourse() {
           : responseData?.quiz || responseData;
 
         if (isMounted) {
-          setLessonHasQuiz(
-            Boolean(quiz?._id || quiz?.id)
-          );
+          setLessonHasQuiz(Boolean(quiz?._id || quiz?.id));
         }
       } catch (err) {
         // A missing quiz should hide the quiz button.
@@ -194,10 +190,104 @@ export default function LearnCourse() {
   const completedLessons = enrollment?.completedLessons || [];
 
   const isLessonCompleted = selectedLesson
-    ? completedLessons.some(
-        (id) => String(id) === String(selectedLesson._id)
-      )
+    ? completedLessons.some((id) => String(id) === String(selectedLesson._id))
     : false;
+
+  // Load processed videos uploaded for this course
+  // Load processed videos for the selected lesson
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadUploadedVideos() {
+      setUploadedVideos([]);
+      setSelectedUploadedVideo(null);
+      setVideoError("");
+
+      if (!selectedLessonId) return;
+
+      try {
+        const response = await api.get("/media", {
+          params: {
+            courseId,
+            lessonId: selectedLessonId,
+            mediaType: "video",
+          },
+        });
+
+        const data = response.data?.data;
+        const videos = Array.isArray(data) ? data : [];
+
+        if (cancelled) return;
+
+        const processedVideos = videos.filter(
+          (video) =>
+            video.processingStatus === "completed" &&
+            video.fileUrl &&
+            video.lessonId === selectedLessonId,
+        );
+
+        setUploadedVideos(processedVideos);
+      } catch (err) {
+        console.error("Load uploaded videos error:", err);
+
+        if (!cancelled) {
+          setUploadedVideos([]);
+        }
+      }
+    }
+
+    loadUploadedVideos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [courseId, selectedLessonId]);
+  // Play uploaded HLS videos using hls.js
+  useEffect(() => {
+    const videoElement = uploadedVideoRef.current;
+    const videoUrl = selectedUploadedVideo?.fileUrl;
+
+    setVideoError("");
+
+    if (!videoElement || !videoUrl) return;
+
+    let hls;
+
+    if (Hls.isSupported()) {
+      hls = new Hls();
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        console.error("HLS playback error:", {
+          type: data.type,
+          details: data.details,
+          fatal: data.fatal,
+          url: data.url,
+          response: data.response,
+          reason: data.reason,
+        });
+
+        if (data.fatal) {
+          setVideoError(
+            `HLS error: ${data.details}. Check browser console for details.`,
+          );
+        }
+      });
+
+      hls.loadSource(videoUrl);
+      hls.attachMedia(videoElement);
+    } else if (videoElement.canPlayType("application/vnd.apple.mpegurl")) {
+      videoElement.src = videoUrl;
+    } else {
+      setVideoError("Your browser does not support HLS playback.");
+    }
+
+    return () => {
+      if (hls) hls.destroy();
+
+      videoElement.removeAttribute("src");
+      videoElement.load();
+    };
+  }, [selectedUploadedVideo?.fileUrl]);
 
   async function handleCompleteLesson() {
     if (!enrollment?._id || !selectedLesson?._id) {
@@ -212,11 +302,10 @@ export default function LearnCourse() {
     try {
       const response = await api.patch(
         `/learning/${enrollment._id}/complete-lesson`,
-        { lessonId: selectedLesson._id }
+        { lessonId: selectedLesson._id },
       );
 
-      const updatedEnrollment =
-        response.data.data || response.data.enrollment;
+      const updatedEnrollment = response.data.data || response.data.enrollment;
 
       if (updatedEnrollment) {
         setEnrollment(updatedEnrollment);
@@ -232,15 +321,13 @@ export default function LearnCourse() {
         }));
       }
 
-      setMessage(
-        response.data.message || "Lesson marked as completed."
-      );
+      setMessage(response.data.message || "Lesson marked as completed.");
     } catch (err) {
       console.error("Complete lesson error:", err);
 
       setError(
         err.response?.data?.message ||
-          "Could not mark this lesson as completed."
+          "Could not mark this lesson as completed.",
       );
     } finally {
       setCompleting(false);
@@ -302,7 +389,7 @@ export default function LearnCourse() {
 
             {lessons.map((lesson, index) => {
               const completed = completedLessons.some(
-                (id) => String(id) === String(lesson._id)
+                (id) => String(id) === String(lesson._id),
               );
 
               return (
@@ -311,6 +398,8 @@ export default function LearnCourse() {
                   type="button"
                   onClick={() => {
                     setSelectedLessonId(lesson._id);
+                    setSelectedUploadedVideo(null);
+                    setVideoError("");
                     setError("");
                     setMessage("");
                   }}
@@ -336,39 +425,119 @@ export default function LearnCourse() {
               <>
                 <h2>{selectedLesson.title}</h2>
 
-                <p>
-                  {selectedLesson.description || "Course lesson"}
-                </p>
+                <p>{selectedLesson.description || "Course lesson"}</p>
 
-                {getYouTubeEmbedUrl(selectedLesson.videoUrl) ? (
-                  <iframe
-                    title={selectedLesson.title}
-                    src={getYouTubeEmbedUrl(
-                      selectedLesson.videoUrl
-                    )}
-                    width="100%"
+                {/* Uploaded course videos */}
+                {uploadedVideos.length > 0 && (
+                  <section
                     style={{
-                      aspectRatio: "16 / 9",
-                      border: 0,
+                      margin: "24px 0",
+                      padding: "20px",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "12px",
+                      background: "#f9fafb",
                     }}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    allowFullScreen
-                  />
-                ) : (
-                  <p>
-                    Video cannot be embedded.{" "}
-                    {selectedLesson.videoUrl && (
-                      <a
-                        href={selectedLesson.videoUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        Open video
-                      </a>
-                    )}
-                  </p>
+                  >
+                    <h3 style={{ marginTop: 0, marginBottom: "16px" }}>
+                      Course Video Library
+                    </h3>
+
+                    <div
+                      style={{
+                        display: "grid",
+                        gridTemplateColumns:
+                          "repeat(auto-fill, minmax(220px, 1fr))",
+                        gap: "12px",
+                      }}
+                    >
+                      {uploadedVideos.map((video) => (
+                        <button
+                          key={video._id}
+                          type="button"
+                          onClick={() => setSelectedUploadedVideo(video)}
+                          style={{
+                            padding: "14px",
+                            textAlign: "left",
+                            cursor: "pointer",
+                            border:
+                              selectedUploadedVideo?._id === video._id
+                                ? "2px solid #2563eb"
+                                : "1px solid #d1d5db",
+                            borderRadius: "8px",
+                            background:
+                              selectedUploadedVideo?._id === video._id
+                                ? "#eff6ff"
+                                : "#ffffff",
+                            color: "#111827",
+                          }}
+                        >
+                          <div style={{ fontWeight: 600, marginBottom: "8px" }}>
+                            {video.title}
+                          </div>
+
+                          <div style={{ fontSize: "12px", color: "#6b7280" }}>
+                            {selectedUploadedVideo?._id === video._id
+                              ? "Now selected"
+                              : "Click to play"}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
                 )}
+
+                {/* HLS video player */}
+                {selectedUploadedVideo && (
+                  <section style={{ margin: "20px 0" }}>
+                    <h3>{selectedUploadedVideo.title}</h3>
+                    <video
+                      ref={uploadedVideoRef}
+                      controls
+                      playsInline
+                      style={{
+                        width: "100%",
+                        maxWidth: "900px",
+                        aspectRatio: "16 / 9",
+                        background: "#000",
+                        borderRadius: "8px",
+                      }}
+                    />
+
+                    {videoError && (
+                      <p role="alert" style={{ color: "red" }}>
+                        {videoError}
+                      </p>
+                    )}
+
+                    <p>Status: {selectedUploadedVideo.processingStatus}</p>
+                  </section>
+                )}
+
+                {!selectedUploadedVideo &&
+                  (getYouTubeEmbedUrl(selectedLesson.videoUrl) ? (
+                    <iframe
+                      title={selectedLesson.title}
+                      src={getYouTubeEmbedUrl(selectedLesson.videoUrl)}
+                      width="100%"
+                      style={{ aspectRatio: "16 / 9", border: 0 }}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      referrerPolicy="strict-origin-when-cross-origin"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <p>
+                      Video cannot be embedded.{" "}
+                      {selectedLesson.videoUrl && (
+                        <a
+                          href={selectedLesson.videoUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open video
+                        </a>
+                      )}
+                    </p>
+                  ))}
 
                 <button
                   type="button"
