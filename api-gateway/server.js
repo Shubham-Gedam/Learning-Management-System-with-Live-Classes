@@ -13,7 +13,7 @@ app.use(
   cors({
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
     credentials: true,
-  })
+  }),
 );
 
 // Parse cookies
@@ -47,10 +47,10 @@ const services = [
     target: process.env.AUTH_SERVICE_URL,
   },
   {
-  path: "/api/courses",
-  target: process.env.COURSE_SERVICE_URL,
-  changeOrigin: true,
-},
+    path: "/api/courses",
+    target: process.env.COURSE_SERVICE_URL,
+    changeOrigin: true,
+  },
   {
     path: "/api/lessons",
     target: process.env.LEARNING_SERVICE_URL,
@@ -83,6 +83,10 @@ const services = [
     path: "/api/certificates",
     target: process.env.CERTIFICATE_SERVICE_URL,
   },
+  {
+    path: "/api/admin",
+    target: process.env.AUTH_SERVICE_URL,
+  },
 ];
 
 // Register service proxies
@@ -101,12 +105,12 @@ for (const service of services) {
       on: {
         proxyReq(proxyReq, req) {
           console.log(
-            `[Proxy] ${req.method} ${req.originalUrl} -> ${service.target}${proxyReq.path}`
+            `[Proxy] ${req.method} ${req.originalUrl} -> ${service.target}${proxyReq.path}`,
           );
         },
         proxyRes(proxyRes, req) {
           console.log(
-            `[Proxy Response] ${req.method} ${req.originalUrl} -> ${proxyRes.statusCode}`
+            `[Proxy Response] ${req.method} ${req.originalUrl} -> ${proxyRes.statusCode}`,
           );
         },
         error(err, req, res) {
@@ -121,7 +125,7 @@ for (const service of services) {
           }
         },
       },
-    })
+    }),
   );
 }
 

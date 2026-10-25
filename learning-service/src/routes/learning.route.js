@@ -1,5 +1,6 @@
 import express from "express";
 import { authMiddleware } from "../middleware/auth.middleware.js";
+import { authorizeRoles } from "../middleware/role.middleware.js";
 import { internalServiceMiddleware } from "../middleware/internalService.middleware.js";
 
 import * as learningController from "../controllers/learning.controller.js";
@@ -16,5 +17,7 @@ router.get("/my-courses", learningController.getMyEnrollmentsController);
 router.get("/:enrollmentId",learningController.getEnrollmentByIdController);
 
 router.patch("/:enrollmentId/complete-lesson",learningController.completeLessonController);
+
+router.get("/admin/stats",authorizeRoles("admin"),learningController.getAdminEnrollmentStatsController);
 
 export default router;

@@ -23,6 +23,7 @@ import Quiz from "./pages/Quiz";
 import InstructorUpload from "./pages/InstructorUpload";
 import InstructorDashboard from "./pages/InstructorDashboard";
 import CreateCourse from "./pages/CreateCourse";
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -61,6 +62,8 @@ function App() {
                 element={<Certificate />}
               />
               <Route path="/quiz/:lessonId" element={<Quiz />} />
+
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
 
               <Route path="*" element={<NotFound />} />
             </Route>

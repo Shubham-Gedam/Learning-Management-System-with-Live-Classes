@@ -268,3 +268,35 @@ export async function verifyCourseEnrollmentController(req, res) {
     });
   }
 }
+
+// Admin: Get total platform enrollments
+export async function getAdminEnrollmentStatsController(req, res) {
+  try {
+    const totalEnrollments = await enrollmentModel.countDocuments();
+
+    const activeEnrollments = await enrollmentModel.countDocuments({
+      status: "active",
+    });
+
+    const completedEnrollments = await enrollmentModel.countDocuments({
+      status: "completed",
+    });
+
+    return res.status(200).json({
+      status: "success",
+      message: "Enrollment statistics fetched successfully",
+      data: {
+        totalEnrollments,
+        activeEnrollments,
+        completedEnrollments,
+      },
+    });
+  } catch (error) {
+    console.error("Admin enrollment stats error:", error.message);
+
+    return res.status(500).json({
+      status: "failed",
+      message: "Failed to fetch enrollment statistics",
+    });
+  }
+}

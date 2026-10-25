@@ -28,16 +28,16 @@ function Navbar() {
 
         <NavLink to="/classes">Live Classes</NavLink>
 
-        {user && (role === "instructor" || role === "admin") && (
+        {user && role === "instructor" && (
           <>
-            <NavLink to="/instructor/dashboard">
-              Instructor Dashboard
-            </NavLink>
+            <NavLink to="/instructor/dashboard">Instructor Dashboard</NavLink>
 
-            <NavLink to="/instructor/upload">
-              Upload Video
-            </NavLink>
+            <NavLink to="/instructor/upload">Upload Video</NavLink>
           </>
+        )}
+
+        {user && role === "admin" && (
+          <NavLink to="/admin/dashboard">Admin Dashboard</NavLink>
         )}
 
         {!user ? (
