@@ -20,6 +20,7 @@ import Certificate from "./pages/Certificate";
 import NotFound from "./pages/NotFound";
 import LiveRoom from "./pages/LiveRoom";
 import Quiz from "./pages/Quiz";
+import CreateQuiz from "./pages/CreateQuiz";
 import InstructorUpload from "./pages/InstructorUpload";
 import InstructorDashboard from "./pages/InstructorDashboard";
 import CreateCourse from "./pages/CreateCourse";
@@ -53,6 +54,7 @@ function App() {
                 path="/instructor/create-course"
                 element={<CreateCourse />}
               />
+              <Route path="/instructor/create-quiz" element={<CreateQuiz />} />
 
               <Route path="/classes" element={<Classes />} />
               <Route path="/live-room" element={<LiveRoom />} />

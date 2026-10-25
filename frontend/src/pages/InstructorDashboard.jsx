@@ -110,6 +110,16 @@ export default function InstructorDashboard() {
             View Courses
           </Link>
         </div>
+        <div className="dashboard-card">
+          <h2>Create Quiz</h2>
+          <p>
+            Create quizzes for your course lessons and publish them for
+            students.
+          </p>
+          <Link to="/instructor/create-quiz" className="register-btn">
+            Create Quiz
+          </Link>
+        </div>
       </section>
 
       <section className="my-courses-section">

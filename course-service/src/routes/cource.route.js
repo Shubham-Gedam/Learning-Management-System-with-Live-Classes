@@ -42,4 +42,11 @@ router.delete(
   courseController.deleteCourseController
 );
 
+router.get(
+  "/admin/all",
+  authMiddleware,
+  authorizeRoles("admin"),
+  courseController.getAllAdminCoursesController
+);
+
 export default router;

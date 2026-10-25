@@ -2,7 +2,8 @@ import courseModel from "../models/course.model.js";
 
 export async function createCourseController(req, res) {
   try {
-    const {title, description, category, thumbnail, price, level, status } = req.body;
+    const { title, description, category, thumbnail, price, level, status } =
+      req.body;
 
     if (!title || !description || !category) {
       return res.status(400).json({
@@ -116,7 +117,10 @@ export async function updateCourseController(req, res) {
     }
 
     // Sirf course ka owner instructor update kar sakta hai
-    if (course.instructor !== req.user.userId) {
+    if (
+      req.user.role !== "admin" &&
+      course.instructor.toString() !== req.user.userId
+    ) {
       return res.status(403).json({
         message: "You are not authorized to update this course",
         status: "failed",
@@ -185,7 +189,10 @@ export async function deleteCourseController(req, res) {
     }
 
     // Sirf course ka owner instructor delete kar sakta hai
-    if (course.instructor !== req.user.userId) {
+    if (
+      req.user.role !== "admin" &&
+      course.instructor.toString() !== req.user.userId
+    ) {
       return res.status(403).json({
         message: "You are not authorized to delete this course",
         status: "failed",
@@ -227,9 +234,7 @@ export async function getMyCoursesController(req, res) {
             isActive: true,
           };
 
-    const courses = await courseModel
-      .find(filter)
-      .sort({ createdAt: -1 });
+    const courses = await courseModel.find(filter).sort({ createdAt: -1 });
 
     return res.status(200).json({
       totalCourses: courses.length,
@@ -243,6 +248,30 @@ export async function getMyCoursesController(req, res) {
     return res.status(500).json({
       message: "Failed to fetch your courses",
       status: "failed",
+    });
+  }
+}
+
+// Admin: Get all active courses, including unpublished courses
+export async function getAllAdminCoursesController(req, res) {
+  try {
+    const courses = await courseModel
+      .find({ isActive: true })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      status: "success",
+      totalCourses: courses.length,
+      courses,
+      message: "Admin courses fetched successfully",
+    });
+  } catch (error) {
+    console.error("Admin courses error:", error.message);
+
+    return res.status(500).json({
+      status: "failed",
+      message: "Failed to fetch admin courses",
     });
   }
 }
