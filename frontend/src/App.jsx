@@ -4,8 +4,9 @@ import "./App.css";
 
 import { AuthProvider } from "./context/AuthContext";
 import MainLayout from "./layouts/MainLayout";
+import { Provider } from "react-redux";
+import { store } from "./store";
 
-import Navbar from "./components/Navbar";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -25,41 +26,49 @@ import CreateCourse from "./pages/CreateCourse";
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<MainLayout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
+    <Provider store={store}>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<MainLayout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-            <Route path="/courses" element={<Courses />} />
-            <Route path="/courses/:courseId" element={<CourseDetails />} />
+              <Route path="/courses" element={<Courses />} />
+              <Route path="/courses/:courseId" element={<CourseDetails />} />
 
-            <Route path="/my-courses" element={<MyCourses />} />
-            <Route path="/learn/:courseId" element={<LearnCourse />} />
+              <Route path="/my-courses" element={<MyCourses />} />
+              <Route path="/learn/:courseId" element={<LearnCourse />} />
 
-            <Route path="/checkout/:courseId" element={<Checkout />} />
+              <Route path="/checkout/:courseId" element={<Checkout />} />
 
-            <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
-            <Route path="/instructor/upload" element={<InstructorUpload />} />
-            <Route path="/instructor/create-course" element={<CreateCourse />}/>
+              <Route
+                path="/instructor/dashboard"
+                element={<InstructorDashboard />}
+              />
+              <Route path="/instructor/upload" element={<InstructorUpload />} />
+              <Route
+                path="/instructor/create-course"
+                element={<CreateCourse />}
+              />
 
-            <Route path="/classes" element={<Classes />} />
-            <Route path="/live-room" element={<LiveRoom />} />
+              <Route path="/classes" element={<Classes />} />
+              <Route path="/live-room" element={<LiveRoom />} />
 
-            <Route
-              path="/certificate/:certificateId"
-              element={<Certificate />}
-            />
-            <Route path="/quiz/:lessonId" element={<Quiz />} />
+              <Route
+                path="/certificate/:certificateId"
+                element={<Certificate />}
+              />
+              <Route path="/quiz/:lessonId" element={<Quiz />} />
 
-            <Route path="*" element={<NotFound />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthProvider>
-  );
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
+    </Provider>
+  );  
 }
 
 export default App;
