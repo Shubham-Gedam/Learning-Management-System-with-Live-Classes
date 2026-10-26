@@ -124,3 +124,48 @@ export async function userLogoutController(req, res) {
     message: "user logged out successfully",
   });
 }
+
+export async function getUserForLiveClassController(req, res) {
+  try {
+    const internalKey = process.env.INTERNAL_SERVICE_SECRET;
+
+    if (!internalKey || req.headers["x-internal-service-key"] !== internalKey) {
+      return res.status(403).json({
+        message: "Forbidden",
+        status: "failed",
+      });
+    }
+
+    const { userId } = req.params;
+
+    const user = await userModel.findById(userId).select("name role");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+        status: "failed",
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: {
+        userId: user._id.toString(),
+        name: user.name,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        message: "Invalid user ID",
+        status: "failed",
+      });
+    }
+
+    return res.status(500).json({
+      message: "Failed to fetch user",
+      status: "failed",
+    });
+  }
+}

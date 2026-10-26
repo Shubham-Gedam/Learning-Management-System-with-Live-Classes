@@ -1,5 +1,5 @@
 import liveClassModel from "../models/liveclass.model.js";
-import { generateLiveKitToken, endLiveKitRoom  } from "../utils/livekit.js";
+import { generateLiveKitToken, endLiveKitRoom } from "../utils/livekit.js";
 import { verifyEnrollment } from "../utils/verifyEnrollment.js";
 
 // Create a live class
@@ -156,10 +156,7 @@ export async function updateLiveClassStatusController(req, res) {
       });
     }
 
-    if (
-      liveClass.status === "completed" ||
-      liveClass.status === "cancelled"
-    ) {
+    if (liveClass.status === "completed" || liveClass.status === "cancelled") {
       return res.status(400).json({
         message: "This live class has already ended or been cancelled",
         status: "failed",
@@ -224,8 +221,8 @@ export async function joinLiveClassController(req, res) {
       });
     }
 
-    const isInstructor = liveClass.instructorId === req.user.userId;
-
+    const isInstructor =
+      String(liveClass.instructorId) === String(req.user.userId);
     const isAdmin = req.user.role === "admin";
 
     if (!isInstructor && !isAdmin && req.user.role !== "student") {
@@ -235,7 +232,6 @@ export async function joinLiveClassController(req, res) {
       });
     }
 
-    // Student enrollment verification will be added next.
     const roomName = `live-class-${liveClass._id}`;
 
     if (!isInstructor && !isAdmin) {
@@ -262,9 +258,48 @@ export async function joinLiveClassController(req, res) {
         });
       }
     }
+    const authServiceUrl = process.env.AUTH_SERVICE_URL;
+    const internalServiceKey = process.env.INTERNAL_SERVICE_SECRET;
 
+    if (!authServiceUrl || !internalServiceKey) {
+      return res.status(503).json({
+        status: "error",
+        message: "Auth Service configuration is missing",
+      });
+    }
+
+    if (!authServiceUrl || !internalServiceKey) {
+
+      return res.status(503).json({
+        message: "User profile service is not configured",
+        status: "failed",
+      });
+    }
+
+    const userResponse = await fetch(
+      `${authServiceUrl}/api/auth/internal/users/${encodeURIComponent(
+        req.user.userId,
+      )}`,
+      {
+        headers: {
+          "x-internal-service-key": internalServiceKey,
+        },
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+
+    const userResult = await userResponse.json();
+
+    if (!userResponse.ok || !userResult.data?.name) {
+
+      return res.status(503).json({
+        message: "Unable to fetch participant name",
+        status: "failed",
+      });
+    }
     const token = await generateLiveKitToken({
-      identity: req.user.userId,
+      identity: String(req.user.userId),
+      name: userResult.data.name,
       roomName,
       role: req.user.role,
     });
@@ -276,6 +311,7 @@ export async function joinLiveClassController(req, res) {
         serverUrl: process.env.LIVEKIT_URL,
         roomName,
         token,
+        participantName: userResult.data.name,
       },
     });
   } catch (error) {

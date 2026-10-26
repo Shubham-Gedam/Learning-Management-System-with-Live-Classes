@@ -23,7 +23,7 @@ export async function endLiveKitRoom(roomName) {
   await client.deleteRoom(roomName);
 }
 
-export async function generateLiveKitToken({ identity, roomName, role }) {
+export async function generateLiveKitToken({ identity, name, roomName, role }) {
   const apiKey = process.env.LIVEKIT_API_KEY;
   const apiSecret = process.env.LIVEKIT_API_SECRET;
 
@@ -34,7 +34,7 @@ export async function generateLiveKitToken({ identity, roomName, role }) {
   const token = new AccessToken(apiKey, apiSecret, {
     identity,
     ttl: "1h",
-    name: identity,
+    name: name || identity,
   });
 
   token.addGrant({
