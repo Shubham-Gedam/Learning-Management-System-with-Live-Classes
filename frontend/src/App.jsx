@@ -25,6 +25,7 @@ import InstructorUpload from "./pages/InstructorUpload";
 import InstructorDashboard from "./pages/InstructorDashboard";
 import CreateCourse from "./pages/CreateCourse";
 import AdminDashboard from "./pages/AdminDashboard";
+import Profile from "./pages/Profile";
 
 function App() {
   return (
@@ -41,6 +42,7 @@ function App() {
               <Route path="/courses/:courseId" element={<CourseDetails />} />
 
               <Route path="/my-courses" element={<MyCourses />} />
+              <Route path="/profile" element={<Profile />} />
               <Route path="/learn/:courseId" element={<LearnCourse />} />
 
               <Route path="/checkout/:courseId" element={<Checkout />} />
