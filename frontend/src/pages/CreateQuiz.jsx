@@ -1,7 +1,7 @@
-
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import api from "../services/api";
+import { ArrowLeft, Sparkles, CheckCircle2, AlertCircle, Plus, Trash2, HelpCircle, Check } from "lucide-react";
 
 const createEmptyQuestion = () => ({
   questionText: "",
@@ -289,257 +289,346 @@ export default function CreateQuiz() {
   }
 
   if (loadingCourses) {
-    return <main className="page-container"><p>Loading courses...</p></main>;
+    return (
+      <div className="bg-[#0B0B0B] text-white min-h-screen flex items-center justify-center font-sans">
+        <div className="flex items-center gap-3 text-orange-500 font-bold text-lg animate-pulse">
+          <Sparkles className="w-6 h-6" /> Loading courses...
+        </div>
+      </div>
+    );
   }
 
   return (
-    <main className="page-container">
-      <h1>Create Quiz</h1>
-      <p>Create a quiz for one of your courses and lessons.</p>
-
-      <p>
-        <Link to="/instructor/dashboard">← Back to Dashboard</Link>
-      </p>
-
-      {error && <p role="alert" style={{ color: "crimson" }}>{error}</p>}
-      {message && <p role="status" style={{ color: "green" }}>{message}</p>}
-
-      {createdQuiz ? (
-        <section className="dashboard-card">
-          <h2>{createdQuiz.title}</h2>
-          <p>
-            Status: {createdQuiz.isPublished ? "Published" : "Unpublished"}
-          </p>
-
-          {!createdQuiz.isPublished && (
-            <button
-              type="button"
-              className="register-btn"
-              onClick={handlePublish}
-              disabled={saving}
-            >
-              {saving ? "Publishing..." : "Publish Quiz"}
-            </button>
-          )}
-
-          <button
-            type="button"
-            className="register-btn"
-            onClick={() => navigate("/instructor/dashboard")}
-            style={{ marginLeft: 8 }}
+    <div className="bg-[#0B0B0B] text-white min-h-screen font-sans px-6 lg:px-16 py-12">
+      <div className="max-w-4xl mx-auto space-y-10">
+        
+        {/* Back Link & Header */}
+        <div className="space-y-4 border-b border-neutral-900 pb-6">
+          <Link 
+            to="/instructor/dashboard" 
+            className="inline-flex items-center gap-2 text-xs font-semibold text-neutral-400 hover:text-orange-500 transition-colors uppercase tracking-wider bg-neutral-900/60 border border-neutral-800 px-4 py-2 rounded-full"
           >
-            Back to Dashboard
-          </button>
+            <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+          </Link>
 
-          <button
-            type="button"
-            className="register-btn"
-            onClick={() => {
-              setCreatedQuiz(null);
-              setMessage("");
-              setTitle("");
-              setDescription("");
-              setPassingMarks(1);
-              setQuestions([createEmptyQuestion()]);
-            }}
-            style={{ marginLeft: 8 }}
-          >
-            Create Another Quiz
-          </button>
-        </section>
-      ) : (
-        <form onSubmit={handleCreateQuiz}>
-          <div className="dashboard-card">
-            <label htmlFor="quiz-course">Course</label>
-            <select
-              id="quiz-course"
-              value={courseId}
-              onChange={(event) => setCourseId(event.target.value)}
-              required
-            >
-              <option value="">Select course</option>
-              {courses.map((course) => (
-                <option key={course._id} value={course._id}>
-                  {course.title}
-                </option>
-              ))}
-            </select>
-
-            {courses.length === 0 && (
-              <p>Create a course first before making a quiz.</p>
-            )}
-
-            <label htmlFor="quiz-lesson">Lesson</label>
-            <select
-              id="quiz-lesson"
-              value={lessonId}
-              onChange={(event) => setLessonId(event.target.value)}
-              disabled={loadingLessons || lessons.length === 0}
-              required
-            >
-              <option value="">
-                {loadingLessons ? "Loading lessons..." : "Select lesson"}
-              </option>
-              {lessons.map((lesson) => (
-                <option key={lesson._id} value={lesson._id}>
-                  {lesson.title}
-                </option>
-              ))}
-            </select>
-
-            {!loadingLessons && courseId && lessons.length === 0 && (
-              <p>This course has no lessons available yet.</p>
-            )}
-
-            <label htmlFor="quiz-title">Quiz title</label>
-            <input
-              id="quiz-title"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              placeholder="e.g. MERN Stack Basics Quiz"
-              required
-            />
-
-            <label htmlFor="quiz-description">Description</label>
-            <textarea
-              id="quiz-description"
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Describe this quiz (optional)"
-              rows={3}
-            />
-
-            <label htmlFor="passing-marks">Passing marks</label>
-            <input
-              id="passing-marks"
-              type="number"
-              min="0"
-              max={questions.reduce(
-                (total, question) => total + Number(question.marks || 0),
-                0
-              )}
-              value={passingMarks}
-              onChange={(event) => setPassingMarks(event.target.value)}
-              required
-            />
+          <div className="space-y-1">
+            <span className="text-orange-500 text-xs font-bold tracking-[0.2em] uppercase flex items-center gap-2">
+              <Sparkles className="w-4 h-4" /> INSTRUCTOR STUDIO
+            </span>
+            <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-white">
+              Create Quiz
+            </h1>
+            <p className="text-sm text-neutral-400">
+              Create a structured auto-graded quiz for your course lessons.
+            </p>
           </div>
+        </div>
 
-          <h2>Questions</h2>
+        {/* Alerts */}
+        {error && (
+          <div role="alert" className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl text-xs font-semibold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4" /> {error}
+          </div>
+        )}
+        {message && (
+          <div role="status" className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 p-4 rounded-xl text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4" /> {message}
+          </div>
+        )}
 
-          {questions.map((question, questionIndex) => (
-            <section className="dashboard-card" key={questionIndex}>
-              <h3>Question {questionIndex + 1}</h3>
+        {createdQuiz ? (
+          <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-8 space-y-6 shadow-2xl text-center max-w-lg mx-auto">
+            <div className="w-12 h-12 rounded-full bg-emerald-500/10 text-emerald-400 flex items-center justify-center mx-auto">
+              <Check className="w-6 h-6" />
+            </div>
 
-              <label>Question text</label>
-              <textarea
-                value={question.questionText}
-                onChange={(event) =>
-                  updateQuestion(
-                    questionIndex,
-                    "questionText",
-                    event.target.value
-                  )
-                }
-                placeholder="Enter your question"
-                rows={3}
-                required
-              />
+            <div className="space-y-2">
+              <h2 className="text-xl font-bold text-white">{createdQuiz.title}</h2>
+              <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+                createdQuiz.isPublished ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+              }`}>
+                Status: {createdQuiz.isPublished ? "Published" : "Unpublished"}
+              </span>
+            </div>
 
-              <label>Options</label>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+              {!createdQuiz.isPublished && (
+                <button
+                  type="button"
+                  className="w-full sm:w-auto bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold px-6 py-3 rounded-xl text-xs transition-all shadow-lg shadow-orange-600/20"
+                  onClick={handlePublish}
+                  disabled={saving}
+                >
+                  {saving ? "Publishing..." : "Publish Quiz"}
+                </button>
+              )}
 
-              {question.options.map((option, optionIndex) => (
-                <div key={optionIndex} style={{ marginBottom: 10 }}>
-                  <input
-                    value={option}
-                    onChange={(event) =>
-                      updateOption(
-                        questionIndex,
-                        optionIndex,
-                        event.target.value
-                      )
-                    }
-                    placeholder={`Option ${optionIndex + 1}`}
+              <button
+                type="button"
+                className="w-full sm:w-auto bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-700 font-semibold px-6 py-3 rounded-xl text-xs transition-all"
+                onClick={() => navigate("/instructor/dashboard")}
+              >
+                Back to Dashboard
+              </button>
+
+              <button
+                type="button"
+                className="w-full sm:w-auto bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-white border border-neutral-800 font-semibold px-6 py-3 rounded-xl text-xs transition-all"
+                onClick={() => {
+                  setCreatedQuiz(null);
+                  setMessage("");
+                  setTitle("");
+                  setDescription("");
+                  setPassingMarks(1);
+                  setQuestions([createEmptyQuestion()]);
+                }}
+              >
+                Create Another Quiz
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleCreateQuiz} className="space-y-8">
+            
+            {/* Quiz General Info Card */}
+            <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-2xl">
+              <h2 className="text-base font-bold text-white flex items-center gap-2 border-b border-neutral-800/80 pb-4">
+                <HelpCircle className="w-5 h-5 text-orange-500" /> Quiz Settings
+              </h2>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label htmlFor="quiz-course" className="text-xs font-semibold text-neutral-300">Course *</label>
+                  <select
+                    id="quiz-course"
+                    value={courseId}
+                    onChange={(event) => setCourseId(event.target.value)}
                     required
-                  />
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-orange-500 transition"
+                  >
+                    <option value="">Select course</option>
+                    {courses.map((course) => (
+                      <option key={course._id} value={course._id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                  {courses.length === 0 && (
+                    <p className="text-[11px] text-amber-500 pt-1">Create a course first before making a quiz.</p>
+                  )}
+                </div>
 
-                  <label style={{ display: "inline-flex", gap: 6, margin: "8px 12px" }}>
-                    <input
-                      type="radio"
-                      name={`correct-answer-${questionIndex}`}
-                      checked={question.correctAnswer === optionIndex}
-                      onChange={() =>
+                <div className="space-y-1.5">
+                  <label htmlFor="quiz-lesson" className="text-xs font-semibold text-neutral-300">Lesson *</label>
+                  <select
+                    id="quiz-lesson"
+                    value={lessonId}
+                    onChange={(event) => setLessonId(event.target.value)}
+                    disabled={loadingLessons || lessons.length === 0}
+                    required
+                    className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-orange-500 transition disabled:opacity-50"
+                  >
+                    <option value="">
+                      {loadingLessons ? "Loading lessons..." : "Select lesson"}
+                    </option>
+                    {lessons.map((lesson) => (
+                      <option key={lesson._id} value={lesson._id}>
+                        {lesson.title}
+                      </option>
+                    ))}
+                  </select>
+                  {!loadingLessons && courseId && lessons.length === 0 && (
+                    <p className="text-[11px] text-amber-500 pt-1">This course has no lessons available yet.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="quiz-title" className="text-xs font-semibold text-neutral-300">Quiz title *</label>
+                <input
+                  id="quiz-title"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  placeholder="e.g. MERN Stack Basics Quiz"
+                  required
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label htmlFor="quiz-description" className="text-xs font-semibold text-neutral-300">Description</label>
+                <textarea
+                  id="quiz-description"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder="Describe this quiz (optional)"
+                  rows={3}
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition resize-none"
+                />
+              </div>
+
+              <div className="space-y-1.5 max-w-xs">
+                <label htmlFor="passing-marks" className="text-xs font-semibold text-neutral-300">Passing marks *</label>
+                <input
+                  id="passing-marks"
+                  type="number"
+                  min="0"
+                  max={questions.reduce(
+                    (total, question) => total + Number(question.marks || 0),
+                    0
+                  )}
+                  value={passingMarks}
+                  onChange={(event) => setPassingMarks(event.target.value)}
+                  required
+                  className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-orange-500 transition"
+                />
+              </div>
+            </div>
+
+            {/* Questions Builder Section */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-neutral-900 pb-4">
+                <h3 className="text-xl font-bold text-white">Questions</h3>
+                <span className="text-xs text-neutral-400">{questions.length} Questions Added</span>
+              </div>
+
+              {questions.map((question, questionIndex) => (
+                <div className="bg-[#141414] border border-neutral-800 rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl" key={questionIndex}>
+                  <div className="flex items-center justify-between border-b border-neutral-800/80 pb-4">
+                    <h4 className="text-sm font-bold text-orange-400 uppercase tracking-wider">Question {questionIndex + 1}</h4>
+                    {questions.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeQuestion(questionIndex)}
+                        className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Remove Question
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-semibold text-neutral-300">Question text *</label>
+                    <textarea
+                      value={question.questionText}
+                      onChange={(event) =>
                         updateQuestion(
                           questionIndex,
-                          "correctAnswer",
-                          optionIndex
+                          "questionText",
+                          event.target.value
                         )
                       }
+                      placeholder="Enter your question"
+                      rows={3}
+                      required
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition resize-none"
                     />
-                    Correct answer
-                  </label>
+                  </div>
 
-                  {question.options.length > 2 && (
+                  {/* Options Builder */}
+                  <div className="space-y-3 pt-2">
+                    <label className="text-xs font-semibold text-neutral-300 block">Options & Correct Answer *</label>
+
+                    {question.options.map((option, optionIndex) => (
+                      <div key={optionIndex} className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 bg-neutral-900/60 border border-neutral-800 p-3.5 rounded-xl">
+                        <input
+                          value={option}
+                          onChange={(event) =>
+                            updateOption(
+                              questionIndex,
+                              optionIndex,
+                              event.target.value
+                            )
+                          }
+                          placeholder={`Option ${optionIndex + 1}`}
+                          required
+                          className="flex-1 bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2.5 text-xs text-white placeholder-neutral-500 focus:outline-none focus:border-orange-500 transition"
+                        />
+
+                        <div className="flex items-center justify-between sm:justify-start gap-4">
+                          <label className="inline-flex items-center gap-2 text-xs text-neutral-300 cursor-pointer">
+                            <input
+                              type="radio"
+                              name={`correct-answer-${questionIndex}`}
+                              checked={question.correctAnswer === optionIndex}
+                              onChange={() =>
+                                updateQuestion(
+                                  questionIndex,
+                                  "correctAnswer",
+                                  optionIndex
+                                )
+                              }
+                              className="accent-orange-500"
+                            />
+                            Correct answer
+                          </label>
+
+                          {question.options.length > 2 && (
+                            <button
+                              type="button"
+                              onClick={() => removeOption(questionIndex, optionIndex)}
+                              className="text-xs text-red-400 hover:text-red-300 bg-red-500/10 border border-red-500/20 px-2.5 py-1.5 rounded-lg"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
                     <button
                       type="button"
-                      onClick={() => removeOption(questionIndex, optionIndex)}
+                      onClick={() => addOption(questionIndex)}
+                      className="bg-neutral-900 hover:bg-neutral-800 text-orange-400 border border-neutral-800 font-semibold px-4 py-2 rounded-xl text-xs transition flex items-center gap-1.5"
                     >
-                      Remove option
+                      <Plus className="w-3.5 h-3.5" /> Add Option
                     </button>
-                  )}
+                  </div>
+
+                  {/* Marks Input */}
+                  <div className="space-y-1.5 max-w-xs pt-2">
+                    <label className="text-xs font-semibold text-neutral-300">Marks *</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={question.marks}
+                      onChange={(event) =>
+                        updateQuestion(
+                          questionIndex,
+                          "marks",
+                          event.target.value
+                        )
+                      }
+                      required
+                      className="w-full bg-neutral-900 border border-neutral-800 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-orange-500 transition"
+                    />
+                  </div>
                 </div>
               ))}
 
               <button
                 type="button"
-                onClick={() => addOption(questionIndex)}
+                onClick={addQuestion}
+                className="w-full bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-800 hover:border-neutral-700 font-bold py-3.5 rounded-xl text-xs transition flex items-center justify-center gap-2"
               >
-                + Add Option
+                <Plus className="w-4 h-4 text-orange-500" /> Add Another Question
               </button>
+            </div>
 
-              <div style={{ marginTop: 12 }}>
-                <label>Marks</label>
-                <input
-                  type="number"
-                  min="1"
-                  value={question.marks}
-                  onChange={(event) =>
-                    updateQuestion(
-                      questionIndex,
-                      "marks",
-                      event.target.value
-                    )
-                  }
-                  required
-                />
-              </div>
+            {/* Submit Action */}
+            <div className="pt-4">
+              <button
+                type="submit"
+                className="w-full bg-gradient-to from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white font-bold py-4 rounded-xl text-sm transition-all duration-300 shadow-xl shadow-orange-600/20 disabled:opacity-50"
+                disabled={saving || !courses.length || !lessonId}
+              >
+                {saving ? "Creating Quiz..." : "Create Quiz →"}
+              </button>
+            </div>
+          </form>
+        )}
 
-              {questions.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => removeQuestion(questionIndex)}
-                  style={{ marginTop: 12 }}
-                >
-                  Remove Question
-                </button>
-              )}
-            </section>
-          ))}
-
-          <button type="button" onClick={addQuestion}>
-            + Add Question
-          </button>
-
-          <div style={{ marginTop: 20 }}>
-            <button
-              type="submit"
-              className="register-btn"
-              disabled={saving || !courses.length || !lessonId}
-            >
-              {saving ? "Creating Quiz..." : "Create Quiz"}
-            </button>
-          </div>
-        </form>
-      )}
-    </main>
+      </div>
+    </div>
   );
 }
