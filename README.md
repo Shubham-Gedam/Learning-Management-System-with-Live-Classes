@@ -76,9 +76,6 @@ Typical configuration includes:
 
 **Security:** Never commit `.env` files, passwords, private keys, or API secrets to GitHub.
 
-## Running the Project
-
-
 ## Running the Project Locally
 
 ### Prerequisites
@@ -132,13 +129,28 @@ Vite normally serves the frontend at `http://localhost:5173`.
 
 Use the application's available features to verify authentication, courses, lessons, quizzes, payments, live classes, video streaming, and certificates.
 
-## Video Processing Workflow
+## Media Service — Video Processing Worker
 
-1. An authorized user uploads a video.
-2. The Media Service creates a background job in BullMQ.
-3. FFmpeg processes the video into HLS format.
-4. Processed video files are uploaded to AWS S3.
-5. CloudFront delivers the video for playback.
+The Media Service uses Redis, BullMQ, and FFmpeg to process uploaded videos in the background.
+
+### Prerequisites
+
+- Redis server running on port 6379
+- FFmpeg installed and available in PATH
+- Media Service environment variables configured
+
+### Start the Video Processing Worker
+
+Open a separate terminal and run:
+
+```bash
+cd media-service
+node src/workers/video.worker.js
+```
+
+Keep the worker running while uploading videos. It automatically processes jobs added to the BullMQ queue.
+
+**Note:** Start Redis, the Media Service, and the Video Worker before testing video uploads. If the worker is stopped, queued jobs may remain pending until it starts again.
 
 ## Payment and Certificates
 
