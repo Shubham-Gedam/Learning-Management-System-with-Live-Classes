@@ -29,7 +29,7 @@ function Navbar() {
         </div>
         <div className="flex flex-col">
           <span className="text-lg font-black tracking-wider text-white leading-none">
-            LearnHub
+            LiveLearn
           </span>
           <span className="text-[10px] tracking-widest text-orange-500 font-semibold uppercase mt-0.5">
             Coding School

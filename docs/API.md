@@ -255,7 +255,7 @@ Protected endpoints use cookie-based authentication through `authMiddleware`. In
 | DELETE | `/api/media/:mediaId` | Delete a media record | Instructor/Admin |
 | PATCH | `/api/media/:mediaId/lesson` | Attach media to a lesson | Instructor/Admin |
 
-### Video Upload
+### Video Uploads
 
 - **Method:** POST
 - **Path:** `/api/media/upload`

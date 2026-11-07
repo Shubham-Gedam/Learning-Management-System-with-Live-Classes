@@ -10,7 +10,7 @@ export default function Footer() {
           to="/" 
           className="text-2xl font-black tracking-tight text-white flex items-center gap-2 group"
         >
-          <span>Learn<span className="text-green-400 group-hover:text-green-300 transition-colors">Sphere</span></span>
+          <span>Live<span className="text-green-400 group-hover:text-green-300 transition-colors">Learn</span></span>
           <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
         </Link>
 
